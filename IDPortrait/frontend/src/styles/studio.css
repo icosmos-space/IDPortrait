@@ -236,7 +236,7 @@
 .rail.right {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   overflow: hidden;
   animation-delay: 100ms;
   border-left: 1px solid var(--line);
@@ -247,31 +247,47 @@
 }
 
 .rail.right > .n-collapse,
-.rail.right > .n-collapse.right-collapse,
-.rail.right > .n-collapse .n-collapse {
+.rail.right > .n-collapse.right-collapse {
   flex: 1 1 auto;
   min-height: 0;
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: block;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
+}
+
+.rail.right > .n-collapse::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rail.right > .n-collapse::-webkit-scrollbar-thumb {
+  background: rgba(196, 91, 122, 0.28);
+  border-radius: 6px;
+}
+
+.rail.right > .n-collapse::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .rail.right .n-collapse-item {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
+  display: block;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-top: 1px solid var(--line) !important;
+  background: transparent !important;
 }
 
-/* 仅展开项吃掉剩余高度，内容区内滚动 */
-.rail.right .n-collapse-item.n-collapse-item--active {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
+.rail.right .n-collapse-item:first-child {
+  border-top: none !important;
 }
 
-.rail.right .n-collapse-item__header {
-  flex: 0 0 auto;
+.rail.right .n-collapse-item .n-collapse-item__header {
+  padding: 8px 4px !important;
 }
 
 .rail.right .n-collapse-item:not(.n-collapse-item--active) > .n-collapse-item__content-wrapper {
@@ -279,52 +295,30 @@
   height: 0 !important;
   max-height: 0 !important;
   overflow: hidden !important;
-  flex: 0 0 auto !important;
 }
 
+/* 展开按内容自然高度，下面项紧跟；超出右侧栏底部时由外层出现滚动条 */
 .rail.right .n-collapse-item--active > .n-collapse-item__content-wrapper {
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
   max-height: none !important;
   height: auto !important;
-  overflow: hidden !important;
+  overflow: visible !important;
   opacity: 1 !important;
-  display: flex !important;
-  flex-direction: column;
 }
 
 .rail.right .n-collapse-item--active .n-collapse-item__content {
-  flex: 1 1 auto;
-  min-height: 0;
   height: auto !important;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  overflow: visible !important;
   padding-top: 0 !important;
 }
 
 .rail.right .n-collapse-item--active .n-collapse-item__content-inner {
-  flex: 1 1 auto;
-  min-height: 0;
-  max-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
+  padding: 0 4px 8px !important;
+  max-height: none !important;
+  overflow: visible !important;
 }
 
-.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar {
-  width: 6px;
-}
-
-.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar-thumb {
-  background: rgba(196, 91, 122, 0.28);
-  border-radius: 6px;
-}
-
-.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar-track {
-  background: transparent;
+.rail.right .n-collapse-item .field {
+  margin-bottom: 10px;
 }
 
 @keyframes panel-in {
