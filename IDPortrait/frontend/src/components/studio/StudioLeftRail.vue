@@ -12,6 +12,9 @@ defineProps({
   showCustomSpec: { type: Boolean, default: false },
   appVersion: { type: String, default: '1.0.0' },
   previewModeStyle: { type: Function, required: true },
+  statusText: { type: String, default: '就绪' },
+  statusTone: { type: String, default: 'ok' },
+  progressPercent: { type: Number, default: 0 },
 })
 
 const emit = defineEmits([
@@ -108,6 +111,16 @@ const emit = defineEmits([
           </button>
           <p v-if="!filteredSpecs.length" class="spec-empty">未找到匹配规格</p>
         </div>
+      </div>
+    </section>
+
+    <section class="rail-section pin-status">
+      <span class="status-pill" :data-tone="statusTone">{{ statusText }}</span>
+      <div class="progress-wrap">
+        <div class="progress-track">
+          <div class="progress-fill" :style="{ width: `${progressPercent}%` }" />
+        </div>
+        <span class="progress-num">{{ progressPercent }}%</span>
       </div>
     </section>
 
