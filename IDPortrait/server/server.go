@@ -158,11 +158,20 @@ func (s *Server) mountFrontend(e *echo.Echo) {
 		target, err := url.Parse(s.devFrontend)
 		if err == nil {
 			proxy := httputil.NewSingleHostReverseProxy(target)
+			// Stream websockets / HMR without buffering.
+			proxy.FlushInterval = -1
 			defaultDirector := proxy.Director
 			proxy.Director = func(req *http.Request) {
+				origHost := req.Host
+				if fwd := req.Header.Get("X-Forwarded-Host"); fwd != "" {
+					origHost = fwd
+				}
 				defaultDirector(req)
 				req.Host = target.Host
 				req.Header.Set("X-Forwarded-Proto", "https")
+				if origHost != "" {
+					req.Header.Set("X-Forwarded-Host", origHost)
+				}
 			}
 			proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 				http.Error(w, "frontend dev server unavailable: "+err.Error(), http.StatusBadGateway)
