@@ -144,6 +144,10 @@ const report = reactive({
 
 const showExportModal = ref(false)
 const showSettingModal = ref(false)
+const showAboutModal = ref(false)
+const showUpgradeModal = ref(false)
+const appVersion = '1.0.0'
+const checkingUpgrade = ref(false)
 const exportDir = ref('')
 const exportOpt = reactive({
   single: true,
@@ -157,6 +161,12 @@ const setting = reactive({
   enableRephotoDetect: true,
   enableAiDetect: true,
 })
+const aboutInfo = {
+  name: '最美证件照',
+  version: appVersion,
+  author: '王新勇(Tacey Wong)',
+  desc: '本地影楼级证件照精修与排版工具，支持多规格制证、打印纸排版与合规核验。',
+}
 
 const unbinders = []
 
@@ -466,6 +476,22 @@ function openSettingModal() {
   showSettingModal.value = true
 }
 
+function openAboutModal() {
+  showAboutModal.value = true
+}
+
+function openUpgradeModal() {
+  showUpgradeModal.value = true
+}
+
+async function checkAndUpgrade() {
+  checkingUpgrade.value = true
+  await new Promise((r) => setTimeout(r, 800))
+  checkingUpgrade.value = false
+  showUpgradeModal.value = false
+  message.info('当前已是最新版本 v' + appVersion)
+}
+
 function saveSetting() {
   showSettingModal.value = false
   message.success('设置已保存（原型模拟）')
@@ -495,7 +521,6 @@ function formatVal(v) {
           {{ processing ? '精修中…' : '开始生成' }}
         </button>
         <button class="btn ghost" type="button" @click="openExportModal">导出</button>
-        <button class="btn quiet" type="button" @click="openSettingModal">设置</button>
       </div>
 
       <div class="status-block">
@@ -595,6 +620,14 @@ function formatVal(v) {
             <p v-if="!filteredSpecs.length" class="spec-empty">未找到匹配规格</p>
           </div>
         </div>
+      </section>
+
+      <section class="rail-section pin-footer">
+        <button class="footer-link" type="button" @click="openAboutModal">关于</button>
+        <button class="footer-link" type="button" @click="openSettingModal">设置</button>
+        <button class="footer-version" type="button" @click="openUpgradeModal" title="检查更新">
+          v{{ appVersion }}
+        </button>
       </section>
     </aside>
 
@@ -885,6 +918,54 @@ function formatVal(v) {
         </div>
       </template>
     </n-modal>
+    <n-modal
+      v-model:show="showAboutModal"
+      preset="card"
+      title="关于软件"
+      style="width: 440px"
+      :bordered="false"
+      :segmented="{ content: true, footer: 'soft' }"
+    >
+      <div class="about-body">
+        <div class="about-brand">{{ aboutInfo.name }}</div>
+        <p class="about-desc">{{ aboutInfo.desc }}</p>
+        <div class="about-meta">
+          <div><span>版本</span><em>v{{ aboutInfo.version }}</em></div>
+          <div><span>作者</span><em>{{ aboutInfo.author }}</em></div>
+          <div><span>运行</span><em>本地桌面 · Wails</em></div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="modal-actions">
+          <button class="btn primary" type="button" @click="showAboutModal = false">知道了</button>
+        </div>
+      </template>
+    </n-modal>
+
+    <n-modal
+      v-model:show="showUpgradeModal"
+      preset="card"
+      title="版本更新"
+      style="width: 420px"
+      :bordered="false"
+      :segmented="{ content: true, footer: 'soft' }"
+      :mask-closable="false"
+    >
+      <div class="modal-stack">
+        <p class="upgrade-text">
+          当前版本为 <strong>v{{ appVersion }}</strong>。是否检查并升级到最新版本？
+        </p>
+      </div>
+      <template #footer>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="showUpgradeModal = false">暂不升级</button>
+          <button class="btn primary" type="button" :disabled="checkingUpgrade" @click="checkAndUpgrade">
+            <span v-if="checkingUpgrade" class="spin" />
+            {{ checkingUpgrade ? '检查中…' : '检查升级' }}
+          </button>
+        </div>
+      </template>
+    </n-modal>
   </div>
 </template>
 
@@ -1163,6 +1244,16 @@ function formatVal(v) {
 .rail.left .pin-mid {
   flex: 0 0 auto;
   border-bottom: 1px solid var(--line);
+}
+
+.rail.left .pin-footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 252, 253, 0.96);
 }
 
 .rail.left .specs-section {
@@ -1687,6 +1778,92 @@ function formatVal(v) {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+.footer-link,
+.footer-version {
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.footer-link:hover,
+.footer-version:hover {
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+}
+
+.footer-version {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.about-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.about-brand {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.about-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.about-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--rose-soft);
+  border: 1px solid rgba(196, 91, 122, 0.12);
+}
+
+.about-meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.about-meta span {
+  color: var(--ink-faint);
+}
+
+.about-meta em {
+  font-style: normal;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.upgrade-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+}
+
+.spin.dark {
+  border-color: rgba(196, 91, 122, 0.25);
+  border-top-color: var(--rose);
 }
 
 :deep(.n-collapse .n-collapse-item) {
