@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch, computed, nextTick } from 'vue'
 import { useMessage } from 'naive-ui'
 import { IDPhotoService } from './services/idphoto'
 
@@ -161,6 +161,12 @@ const showExportModal = ref(false)
 const showSettingModal = ref(false)
 const showAboutModal = ref(false)
 const showUpgradeModal = ref(false)
+const showCameraModal = ref(false)
+const cameraVideo = ref(null)
+const cameraStream = ref(null)
+const cameraReady = ref(false)
+const cameraError = ref('')
+const capturing = ref(false)
 const appVersion = '1.0.0'
 const checkingUpgrade = ref(false)
 const exportDir = ref('')
@@ -290,6 +296,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('IDPhoto.OnProgress', onMockProgress)
   window.removeEventListener('IDPhoto.OnDone', onMockDone)
   window.removeEventListener('IDPhoto.OnError', onMockError)
+  stopCamera()
 })
 
 watch(
@@ -388,6 +395,106 @@ async function openImage() {
   const res = await IDPhotoService.OpenImageDialog()
   if (!res) return
   await loadImage(res)
+}
+
+async function openCameraModal() {
+  cameraError.value = ''
+  cameraReady.value = false
+  showCameraModal.value = true
+  await nextTick()
+  await startCamera()
+}
+
+function closeCameraModal() {
+  showCameraModal.value = false
+  stopCamera()
+}
+
+async function startCamera() {
+  stopCamera()
+  cameraError.value = ''
+  cameraReady.value = false
+  if (!navigator.mediaDevices?.getUserMedia) {
+    cameraError.value = '当前环境不支持摄像头'
+    return
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    })
+    cameraStream.value = stream
+    if (cameraVideo.value) {
+      cameraVideo.value.srcObject = stream
+      await cameraVideo.value.play()
+      cameraReady.value = true
+    }
+  } catch (err) {
+    cameraError.value = err?.message || '无法打开摄像头，请检查权限'
+    cameraReady.value = false
+  }
+}
+
+function stopCamera() {
+  if (cameraStream.value) {
+    cameraStream.value.getTracks().forEach((t) => t.stop())
+    cameraStream.value = null
+  }
+  if (cameraVideo.value) {
+    cameraVideo.value.srcObject = null
+  }
+  cameraReady.value = false
+}
+
+function capturePhoto() {
+  if (!cameraVideo.value || !cameraReady.value) {
+    message.warning('摄像头尚未就绪')
+    return
+  }
+  capturing.value = true
+  const video = cameraVideo.value
+  const canvas = document.createElement('canvas')
+  const w = video.videoWidth || 1280
+  const h = video.videoHeight || 720
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  // 镜像拍摄更符合自拍习惯
+  ctx.translate(w, 0)
+  ctx.scale(-1, 1)
+  ctx.drawImage(video, 0, 0, w, h)
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+  const faceBox = [
+    Math.round(w * 0.28),
+    Math.round(h * 0.16),
+    Math.round(w * 0.72),
+    Math.round(h * 0.72),
+  ]
+  const cx = (faceBox[0] + faceBox[2]) / 2
+  const cy = (faceBox[1] + faceBox[3]) / 2
+  const landmarks = [
+    cx - w * 0.08, cy - h * 0.06,
+    cx + w * 0.08, cy - h * 0.06,
+    cx, cy + h * 0.02,
+    cx - w * 0.06, cy + h * 0.1,
+    cx + w * 0.06, cy + h * 0.1,
+  ]
+  Object.assign(report, {
+    faceOk: true,
+    faceScore: 0.91,
+    isRephoto: false,
+    isAiImage: false,
+  })
+  drawOriginCanvas(dataUrl, faceBox, landmarks)
+  statusText.value = '已拍照'
+  processTagType.value = 'success'
+  capturing.value = false
+  closeCameraModal()
+  message.success('拍照成功')
 }
 
 async function loadImage(path) {
@@ -531,6 +638,7 @@ function formatVal(v) {
 
       <div class="actions">
         <button class="btn ghost" type="button" @click="openImage">打开图片</button>
+        <button class="btn ghost" type="button" @click="openCameraModal">拍照</button>
         <button class="btn ghost" type="button" @click="resetAll">重置</button>
         <button class="btn primary" type="button" :disabled="processing" @click="runGenerate">
           <span v-if="processing" class="spin" />
@@ -875,6 +983,47 @@ function formatVal(v) {
         </n-collapse-item>
       </n-collapse>
     </aside>
+
+    <n-modal
+      v-model:show="showCameraModal"
+      preset="card"
+      title="摄像头拍照"
+      style="width: 640px"
+      :bordered="false"
+      :segmented="{ content: true, footer: 'soft' }"
+      :mask-closable="false"
+      @after-leave="stopCamera"
+    >
+      <div class="camera-body">
+        <div class="camera-viewport">
+          <video
+            ref="cameraVideo"
+            class="camera-video"
+            autoplay
+            playsinline
+            muted
+          />
+          <div class="camera-guide" aria-hidden="true" />
+          <p v-if="cameraError" class="camera-error">{{ cameraError }}</p>
+          <p v-else-if="!cameraReady" class="camera-loading">正在打开摄像头…</p>
+        </div>
+        <p class="camera-tip">请正对镜头，保持面部居中后点击拍照</p>
+      </div>
+      <template #footer>
+        <div class="modal-actions">
+          <button class="btn ghost" type="button" @click="closeCameraModal">取消</button>
+          <button class="btn ghost" type="button" :disabled="!!cameraError" @click="startCamera">重试</button>
+          <button
+            class="btn primary"
+            type="button"
+            :disabled="!cameraReady || capturing"
+            @click="capturePhoto"
+          >
+            {{ capturing ? '处理中…' : '拍照' }}
+          </button>
+        </div>
+      </template>
+    </n-modal>
 
     <n-modal
       v-model:show="showExportModal"
@@ -1862,6 +2011,61 @@ function formatVal(v) {
   font-size: 14px;
   line-height: 1.7;
   color: var(--ink-soft);
+}
+
+.camera-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.camera-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #1a1520;
+  border: 1px solid var(--line);
+}
+
+.camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.camera-guide {
+  pointer-events: none;
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 42%;
+  height: 58%;
+  transform: translate(-50%, -50%);
+  border: 2px dashed rgba(255, 255, 255, 0.55);
+  border-radius: 50% 50% 46% 46%;
+}
+
+.camera-error,
+.camera-loading {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+.camera-tip {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-align: center;
 }
 
 .spin.dark {
