@@ -32,6 +32,7 @@ type GenerateParams struct {
 	AddWatermark   bool    `json:"addWatermark"`
 	GenPrintLayout bool    `json:"genPrintLayout"`
 	PaperSize      string  `json:"paperSize"`
+	EnableTargetFileSize bool `json:"enableTargetFileSize"`
 	TargetFileSize int     `json:"targetFileSize"`
 	MaskFeather    float64 `json:"maskFeather"`
 	// SourceImg is the current origin photo as a data URL.

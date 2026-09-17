@@ -55,6 +55,7 @@ export namespace core {
 	    addWatermark: boolean;
 	    genPrintLayout: boolean;
 	    paperSize: string;
+	    enableTargetFileSize: boolean;
 	    targetFileSize: number;
 	    maskFeather: number;
 	    sourceImg: string;
@@ -87,6 +88,7 @@ export namespace core {
 	        this.addWatermark = source["addWatermark"];
 	        this.genPrintLayout = source["genPrintLayout"];
 	        this.paperSize = source["paperSize"];
+	        this.enableTargetFileSize = source["enableTargetFileSize"];
 	        this.targetFileSize = source["targetFileSize"];
 	        this.maskFeather = source["maskFeather"];
 	        this.sourceImg = source["sourceImg"];

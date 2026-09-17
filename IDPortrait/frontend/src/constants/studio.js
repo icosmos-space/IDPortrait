@@ -57,6 +57,7 @@ export function createDefaultParams() {
     addWatermark: false,
     genPrintLayout: true,
     paperSize: '',
+    enableTargetFileSize: false,
     targetFileSize: 200,
     maskFeather: 0.3,
   }
