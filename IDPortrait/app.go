@@ -3,42 +3,109 @@ package main
 import (
 	"context"
 	"fmt"
+	"io/fs"
+
+	"IDPortrait/core"
+	"IDPortrait/server"
+	"IDPortrait/service"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
+// App is the Wails application facade. Business logic lives in service/core;
+// remote HTTP is served by server package.
 type App struct {
-	ctx context.Context
+	ctx     context.Context
+	svc     *service.Service
+	remote  *server.Server
+	assets  fs.FS
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{}
+func NewApp(assets fs.FS) *App {
+	engine := core.NewEngine()
+	svc := service.New(engine)
+	return &App{
+		svc:    svc,
+		remote: server.New(svc, assets),
+		assets: assets,
+	}
 }
 
-// startup is called at application startup
 func (a *App) startup(ctx context.Context) {
-	// Perform your setup here
 	a.ctx = ctx
 }
 
-// domReady is called after front-end resources have been loaded
-func (a App) domReady(ctx context.Context) {
-	// Add your action here
-}
+func (a *App) domReady(ctx context.Context) {}
 
-// beforeClose is called when the application is about to quit,
-// either by clicking the window close button or calling runtime.Quit.
-// Returning true will cause the application to continue, false will continue shutdown as normal.
 func (a *App) beforeClose(ctx context.Context) (prevent bool) {
 	return false
 }
 
-// shutdown is called at application termination
 func (a *App) shutdown(ctx context.Context) {
-	// Perform your teardown here
+	_ = a.StopRemoteServer()
 }
 
 // Greet returns a greeting for the given name
 func (a *App) Greet(name string) string {
 	return fmt.Sprintf("Hello %s, It's show time!", name)
+}
+
+// --- ID photo APIs (shared with HTTP via service) ---
+
+func (a *App) LoadImage(path string) (*core.LoadImageResult, error) {
+	return a.svc.LoadImage(path)
+}
+
+func (a *App) Generate(params core.GenerateParams) (*core.GenerateResult, error) {
+	return a.svc.Generate(params)
+}
+
+func (a *App) Export(dir string, opt core.ExportOptions) (*core.ExportResult, error) {
+	return a.svc.Export(dir, opt)
+}
+
+func (a *App) OpenImageDialog() (string, error) {
+	if a.ctx == nil {
+		return "", fmt.Errorf("app not ready")
+	}
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择照片",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "Images", Pattern: "*.jpg;*.jpeg;*.png;*.bmp;*.webp"},
+		},
+	})
+}
+
+func (a *App) SelectFolder() (string, error) {
+	if a.ctx == nil {
+		return "", fmt.Errorf("app not ready")
+	}
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "选择导出目录",
+	})
+}
+
+// --- Remote HTTP service ---
+
+// StartRemoteServer starts Echo HTTP server so other devices can open the UI.
+func (a *App) StartRemoteServer(port int) (map[string]any, error) {
+	addr, err := a.remote.Start(port)
+	if err != nil {
+		return nil, err
+	}
+	st := a.remote.Status()
+	st["addr"] = addr
+	st["url"] = addr
+	return st, nil
+}
+
+// StopRemoteServer stops the remote HTTP server.
+func (a *App) StopRemoteServer() error {
+	return a.remote.Stop()
+}
+
+// GetRemoteStatus returns remote server running state.
+func (a *App) GetRemoteStatus() map[string]any {
+	return a.remote.Status()
 }

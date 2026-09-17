@@ -104,7 +104,16 @@ export function useStudio() {
     cacheDir: '',
     enableRephotoDetect: true,
     enableAiDetect: true,
+    remoteEnabled: false,
+    remotePort: 8787,
   })
+  const remoteStatus = reactive({
+    running: false,
+    port: 8787,
+    url: '',
+    addr: '',
+  })
+  const remoteBusy = ref(false)
   const aboutInfo = ABOUT_INFO
 
   const unbinders = []
@@ -350,8 +359,59 @@ export function useStudio() {
     message.success('导出完成（原型模拟）')
   }
 
+  function applyRemoteStatus(st) {
+    if (!st || typeof st !== 'object') return
+    remoteStatus.running = !!st.running
+    remoteStatus.port = st.port || setting.remotePort
+    remoteStatus.url = st.url || st.addr || ''
+    remoteStatus.addr = st.addr || st.url || ''
+    setting.remoteEnabled = !!st.running
+    if (st.port) setting.remotePort = st.port
+  }
+
+  async function refreshRemoteStatus() {
+    const st = await IDPhotoService.GetRemoteStatus()
+    applyRemoteStatus(st)
+    return st
+  }
+
+  async function startRemote() {
+    remoteBusy.value = true
+    try {
+      const st = await IDPhotoService.StartRemoteServer(Number(setting.remotePort) || 8787)
+      applyRemoteStatus(st)
+      setting.remoteEnabled = true
+      if (st?.url || st?.addr) {
+        message.success(`远程服务已启动：${st.url || st.addr}`)
+      } else {
+        message.success('远程服务已启动')
+      }
+    } catch (e) {
+      setting.remoteEnabled = false
+      message.error(e?.message || '启动远程服务失败')
+    } finally {
+      remoteBusy.value = false
+    }
+  }
+
+  async function stopRemote() {
+    remoteBusy.value = true
+    try {
+      await IDPhotoService.StopRemoteServer()
+      applyRemoteStatus({ running: false, port: setting.remotePort, url: '', addr: '' })
+      setting.remoteEnabled = false
+      message.info('远程服务已关闭')
+    } catch (e) {
+      message.error(e?.message || '关闭远程服务失败')
+      await refreshRemoteStatus()
+    } finally {
+      remoteBusy.value = false
+    }
+  }
+
   function openSettingModal() {
     showSettingModal.value = true
+    refreshRemoteStatus()
   }
 
   function openAboutModal() {
@@ -372,7 +432,7 @@ export function useStudio() {
 
   function saveSetting() {
     showSettingModal.value = false
-    message.success('设置已保存（原型模拟）')
+    message.success('设置已保存')
   }
 
   return {
@@ -412,6 +472,8 @@ export function useStudio() {
     exportDir,
     exportOpt,
     setting,
+    remoteStatus,
+    remoteBusy,
     aboutInfo,
     statusTone,
     diagnostics,
@@ -437,5 +499,8 @@ export function useStudio() {
     openUpgradeModal,
     checkAndUpgrade,
     saveSetting,
+    refreshRemoteStatus,
+    startRemote,
+    stopRemote,
   }
 }

@@ -44,6 +44,8 @@ const {
   exportDir,
   exportOpt,
   setting,
+  remoteStatus,
+  remoteBusy,
   aboutInfo,
   statusTone,
   diagnostics,
@@ -66,6 +68,9 @@ const {
   openUpgradeModal,
   checkAndUpgrade,
   saveSetting,
+  refreshRemoteStatus,
+  startRemote,
+  stopRemote,
 } = useStudio()
 </script>
 
@@ -134,7 +139,16 @@ const {
       @export="doExport"
     />
 
-    <SettingModal v-model:show="showSettingModal" :setting="setting" @save="saveSetting" />
+    <SettingModal
+      v-model:show="showSettingModal"
+      :setting="setting"
+      :remote-status="remoteStatus"
+      :remote-busy="remoteBusy"
+      @save="saveSetting"
+      @start-remote="startRemote"
+      @stop-remote="stopRemote"
+      @refresh-remote="refreshRemoteStatus"
+    />
 
     <AboutModal v-model:show="showAboutModal" :about-info="aboutInfo" />
 

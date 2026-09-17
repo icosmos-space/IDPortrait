@@ -1,6 +1,8 @@
 /**
- * 证件照服务层：优先调用 Wails Go 绑定，开发原型阶段回退到本地 mock。
- * 后续 Go 实现 OpenImageDialog / LoadImage / Generate / Export / SelectFolder 后即可无缝切换。
+ * 证件照服务层：
+ * 1) Wails 桌面：优先调用 Go 绑定
+ * 2) 远程浏览器：同源 /api（Echo）
+ * 3) 纯前端开发：本地 mock
  */
 
 const TEMPLATE_PRESETS = {
@@ -25,8 +27,42 @@ const TEMPLATE_PRESETS = {
   custom: { bgColor: '#FFFFFF', label: '自定义尺寸' },
 }
 
+let httpMode = null // null | true | false
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isWailsRuntime() {
+  return typeof window !== 'undefined' && !!(window.go && window.go.main && window.go.main.App)
+}
+
+async function detectHttpMode() {
+  if (httpMode !== null) return httpMode
+  if (isWailsRuntime()) {
+    httpMode = false
+    return false
+  }
+  try {
+    const res = await fetch('/api/health', { method: 'GET' })
+    httpMode = res.ok
+  } catch {
+    httpMode = false
+  }
+  return httpMode
+}
+
+async function apiJSON(path, body, method = 'POST') {
+  const res = await fetch(`/api${path}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error || `HTTP ${res.status}`)
+  }
+  return data
 }
 
 function makePlaceholderThumb(label, bg = '#e8eef5') {
@@ -123,7 +159,7 @@ async function tryGo(method, ...args) {
       return await mod[method](...args)
     }
   } catch {
-    // Go 绑定尚未生成或未实现，走 mock
+    // Go 绑定尚未生成或未实现
   }
   return undefined
 }
@@ -134,13 +170,19 @@ export const IDPhotoService = {
   async OpenImageDialog() {
     const res = await tryGo('OpenImageDialog')
     if (res !== undefined) return res
-    // 原型：模拟选择一张图片路径
+    if (await detectHttpMode()) {
+      // 远程浏览器无法访问本机文件对话框，返回占位路径
+      return `remote://upload-${Date.now()}.jpg`
+    }
     return `mock://sample-${Date.now()}.jpg`
   },
 
   async LoadImage(path) {
     const res = await tryGo('LoadImage', path)
     if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/load-image', { path })
+    }
     const name = String(path).split(/[/\\]/).pop() || '示例照片'
     return {
       imgBase64: makeCanvasDataUrl(360, 480, '#f1f5f9', name),
@@ -158,7 +200,20 @@ export const IDPhotoService = {
   async Generate(params) {
     const res = await tryGo('Generate', params)
     if (res !== undefined) return res
-    // 原型：通过自定义事件模拟 Go 推送进度（由 App.vue 监听）
+    if (await detectHttpMode()) {
+      const steps = [
+        { percent: 20, msg: '远程处理中...' },
+        { percent: 55, msg: '合成输出中...' },
+        { percent: 85, msg: '即将完成...' },
+      ]
+      for (const step of steps) {
+        window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: step }))
+        await sleep(180)
+      }
+      const result = await apiJSON('/generate', params)
+      window.dispatchEvent(new CustomEvent('IDPhoto.OnDone', { detail: result }))
+      return result
+    }
     const steps = [
       { percent: 15, msg: '人脸检测中...' },
       { percent: 35, msg: '智能抠图中...' },
@@ -212,6 +267,9 @@ export const IDPhotoService = {
   async Export(dir, opt) {
     const res = await tryGo('Export', dir, opt)
     if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/export', { dir, options: opt })
+    }
     return { ok: true, dir, opt }
   },
 
@@ -223,5 +281,26 @@ export const IDPhotoService = {
       { name: '示例_护照.jpg', thumb: makePlaceholderThumb('护照', '#dbeafe'), path: 'mock://demo-2.jpg' },
       { name: '示例_教资.jpg', thumb: makePlaceholderThumb('教资', '#fee2e2'), path: 'mock://demo-3.jpg' },
     ]
+  },
+
+  async StartRemoteServer(port) {
+    const res = await tryGo('StartRemoteServer', port)
+    if (res !== undefined) return res
+    throw new Error('远程服务仅可在桌面客户端中启动')
+  },
+
+  async StopRemoteServer() {
+    const res = await tryGo('StopRemoteServer')
+    if (res !== undefined) return res
+    return null
+  },
+
+  async GetRemoteStatus() {
+    const res = await tryGo('GetRemoteStatus')
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return { running: true, port: Number(location.port) || 8787, url: location.origin, addr: location.origin }
+    }
+    return { running: false, port: 8787, url: '', addr: '' }
   },
 }

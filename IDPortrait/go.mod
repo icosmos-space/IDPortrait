@@ -2,7 +2,10 @@ module IDPortrait
 
 go 1.25.0
 
-require github.com/wailsapp/wails/v2 v2.15.0
+require (
+	github.com/labstack/echo/v4 v4.13.3
+	github.com/wailsapp/wails/v2 v2.15.0
+)
 
 require (
 	git.sr.ht/~jackmordaunt/go-toast/v2 v2.0.3 // indirect
@@ -12,7 +15,6 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
-	github.com/labstack/echo/v4 v4.13.3 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
 	github.com/leaanthony/gosod v1.0.4 // indirect
@@ -33,6 +35,7 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.39.0 // indirect
+	golang.org/x/time v0.8.0 // indirect
 )
 
 // replace github.com/wailsapp/wails/v2 v2.15.0 => D:\gospace\pkg\mod

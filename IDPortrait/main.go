@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"io/fs"
 	"log"
 
 	"github.com/wailsapp/wails/v2"
@@ -11,17 +12,23 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
-//go:embed frontend/dist
+//go:embed all:frontend/dist
 var assets embed.FS
 
 //go:embed build/appicon.png
 var icon []byte
 
-func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+func frontendAssets() fs.FS {
+	sub, err := fs.Sub(assets, "frontend/dist")
+	if err != nil {
+		return assets
+	}
+	return sub
+}
 
-	// Create application with options
+func main() {
+	app := NewApp(frontendAssets())
+
 	err := wails.Run(&options.App{
 		Title:             "ID Portrait - 最美证件照",
 		Width:             1280,
@@ -46,15 +53,12 @@ func main() {
 		Bind: []interface{}{
 			app,
 		},
-		// Windows platform specific options
 		Windows: &windows.Options{
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
 			DisableWindowIcon:    false,
-			// DisableFramelessWindowDecorations: false,
 			WebviewUserDataPath: "",
 		},
-		// Mac platform specific options
 		Mac: &mac.Options{
 			TitleBar: &mac.TitleBar{
 				TitlebarAppearsTransparent: false,
