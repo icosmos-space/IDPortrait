@@ -1,6 +1,10 @@
 package service
 
-import "IDPortrait/core"
+import (
+	"sync"
+
+	"IDPortrait/core"
+)
 
 // IDPhotoService is the shared contract for Wails bindings and HTTP API.
 type IDPhotoService interface {
@@ -8,11 +12,18 @@ type IDPhotoService interface {
 	Generate(params core.GenerateParams) (*core.GenerateResult, error)
 	Export(dir string, opt core.ExportOptions) (*core.ExportResult, error)
 	Health() map[string]any
+	GetPhotoSpecs(query core.SpecQuery) (*core.PhotoSpecCatalog, error)
+	GetPaperSpecs(query core.SpecQuery) (*core.PaperSpecCatalog, error)
+	SetCurrentPhotoSpec(value string) error
+	SetCurrentPaperSpec(value string) error
 }
 
 // Service is the default implementation backed by core.Engine.
 type Service struct {
-	engine *core.Engine
+	engine    *core.Engine
+	cfgMu     sync.Mutex
+	cfg       userConfig
+	cfgLoaded bool
 }
 
 func New(engine *core.Engine) *Service {

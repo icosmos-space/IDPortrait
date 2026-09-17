@@ -65,6 +65,22 @@ func (a *App) Export(dir string, opt core.ExportOptions) (*core.ExportResult, er
 	return a.svc.Export(dir, opt)
 }
 
+func (a *App) GetPhotoSpecs(query core.SpecQuery) (*core.PhotoSpecCatalog, error) {
+	return a.svc.GetPhotoSpecs(query)
+}
+
+func (a *App) GetPaperSpecs(query core.SpecQuery) (*core.PaperSpecCatalog, error) {
+	return a.svc.GetPaperSpecs(query)
+}
+
+func (a *App) SetCurrentPhotoSpec(value string) error {
+	return a.svc.SetCurrentPhotoSpec(value)
+}
+
+func (a *App) SetCurrentPaperSpec(value string) error {
+	return a.svc.SetCurrentPaperSpec(value)
+}
+
 func (a *App) OpenImageDialog() (string, error) {
 	if a.ctx == nil {
 		return "", fmt.Errorf("app not ready")

@@ -1,11 +1,11 @@
 <script setup>
-import { BG_MODES, BG_PRESETS, SPEC_CATEGORIES } from '../../constants/studio'
+import { BG_MODES, BG_PRESETS } from '../../constants/studio'
 
 defineProps({
   params: { type: Object, required: true },
   bgPresets: { type: Array, default: () => BG_PRESETS },
   bgModes: { type: Array, default: () => BG_MODES },
-  specCategories: { type: Array, default: () => SPEC_CATEGORIES },
+  specCategories: { type: Array, default: () => [] },
   specKeyword: { type: String, default: '' },
   activeSpecCategory: { type: String, default: 'common' },
   filteredSpecs: { type: Array, default: () => [] },

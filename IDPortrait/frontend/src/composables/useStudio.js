@@ -6,9 +6,6 @@ import {
   BG_MODES,
   BG_PRESETS,
   CLOTH_OPTIONS,
-  PAPER_SIZES,
-  SPEC_CATEGORIES,
-  ALL_SPECS,
   ABOUT_INFO,
   APP_VERSION,
   createDefaultParams,
@@ -50,28 +47,25 @@ export function useStudio() {
 
   const bgModes = BG_MODES
   const clothOptions = CLOTH_OPTIONS
-  const paperSizes = PAPER_SIZES
-  const specCategories = SPEC_CATEGORIES
-  const allSpecs = ALL_SPECS
   const bgPresets = BG_PRESETS
 
+  const paperSizes = ref([])
+  const specCategories = ref([])
+  const allSpecs = ref([])
+  const photoSpecMeta = reactive({ default: '', current: '' })
+  const paperSpecMeta = reactive({ default: '', current: '' })
+
   const currentPaperLabel = computed(() => {
-    return paperSizes.find((p) => p.value === params.paperSize)?.title || '6寸'
+    return paperSizes.value.find((p) => p.value === params.paperSize)?.title || '纸张'
   })
 
   const specKeyword = ref('')
   const activeSpecCategory = ref('common')
+  let specSearchTimer = null
 
   const filteredSpecs = computed(() => {
-    if (activeSpecCategory.value === 'custom') return []
-    const q = specKeyword.value.trim().toLowerCase()
-    return allSpecs.filter((item) => {
-      const inCategory = !q ? item.categories.includes(activeSpecCategory.value) : true
-      if (!inCategory) return false
-      if (!q) return true
-      const hay = `${item.title} ${item.desc} ${item.keywords}`.toLowerCase()
-      return hay.includes(q)
-    })
+    if (activeSpecCategory.value === 'custom' && !specKeyword.value.trim()) return []
+    return allSpecs.value
   })
 
   const showCustomSpec = computed(
@@ -326,6 +320,58 @@ export function useStudio() {
     onError(e.detail)
   }
 
+  async function refreshPhotoSpecs() {
+    const catalog = await IDPhotoService.GetPhotoSpecs({
+      keyword: specKeyword.value.trim(),
+      category: specKeyword.value.trim() ? '' : activeSpecCategory.value,
+    })
+    allSpecs.value = catalog?.list || []
+    if (catalog?.categories?.length) {
+      specCategories.value = catalog.categories
+    }
+    photoSpecMeta.default = catalog?.default || ''
+    photoSpecMeta.current = catalog?.current || ''
+    return catalog
+  }
+
+  async function refreshPaperSpecs(keyword = '') {
+    const catalog = await IDPhotoService.GetPaperSpecs({ keyword })
+    paperSizes.value = catalog?.list || []
+    paperSpecMeta.default = catalog?.default || ''
+    paperSpecMeta.current = catalog?.current || ''
+    return catalog
+  }
+
+  function applyPreferredSpecs(photoCatalog, paperCatalog) {
+    const photoID = IDPhotoService.preferValue(photoCatalog?.current, photoCatalog?.default)
+    const paperID = IDPhotoService.preferValue(paperCatalog?.current, paperCatalog?.default)
+    if (photoID) params.template = photoID
+    if (paperID) params.paperSize = paperID
+    if (photoID && photoID !== 'custom') {
+      const hit = (photoCatalog?.list || []).find((s) => s.value === photoID)
+      if (hit?.categories?.length) {
+        activeSpecCategory.value = hit.categories[0]
+      }
+    }
+  }
+
+  async function loadCatalogs() {
+    const [photoFull, paperFull] = await Promise.all([
+      IDPhotoService.GetPhotoSpecs({ keyword: '', category: '' }),
+      IDPhotoService.GetPaperSpecs({ keyword: '' }),
+    ])
+    if (photoFull?.categories?.length) {
+      specCategories.value = photoFull.categories
+    }
+    photoSpecMeta.default = photoFull?.default || ''
+    photoSpecMeta.current = photoFull?.current || ''
+    paperSpecMeta.default = paperFull?.default || ''
+    paperSpecMeta.current = paperFull?.current || ''
+    paperSizes.value = paperFull?.list || []
+    applyPreferredSpecs(photoFull, paperFull)
+    await refreshPhotoSpecs()
+  }
+
   onMounted(async () => {
     try {
       const { EventsOn } = await import('../../wailsjs/runtime/runtime')
@@ -339,9 +385,15 @@ export function useStudio() {
     window.addEventListener('IDPhoto.OnDone', onMockDone)
     window.addEventListener('IDPhoto.OnError', onMockError)
     clearViews()
+    try {
+      await loadCatalogs()
+    } catch (e) {
+      message.warning(e?.message || '规格列表加载失败，已使用本地兜底')
+    }
   })
 
   onBeforeUnmount(() => {
+    clearTimeout(specSearchTimer)
     unbinders.forEach((off) => typeof off === 'function' && off())
     window.removeEventListener('IDPhoto.OnProgress', onMockProgress)
     window.removeEventListener('IDPhoto.OnDone', onMockDone)
@@ -352,6 +404,25 @@ export function useStudio() {
     () => params.bgPreset,
     (color) => {
       if (color) params.bgColor = color
+    },
+  )
+
+  watch(
+    () => specKeyword.value,
+    () => {
+      clearTimeout(specSearchTimer)
+      specSearchTimer = setTimeout(() => {
+        refreshPhotoSpecs().catch(() => {})
+      }, 180)
+    },
+  )
+
+  watch(
+    () => params.paperSize,
+    (value) => {
+      if (!value) return
+      IDPhotoService.SetCurrentPaperSpec(value).catch(() => {})
+      paperSpecMeta.current = value
     },
   )
 
@@ -447,6 +518,10 @@ export function useStudio() {
 
   function resetAll() {
     Object.assign(params, createDefaultParams())
+    const photoID = IDPhotoService.preferValue(photoSpecMeta.current, photoSpecMeta.default)
+    const paperID = IDPhotoService.preferValue(paperSpecMeta.current, paperSpecMeta.default)
+    if (photoID) params.template = photoID
+    if (paperID) params.paperSize = paperID
     activeSpecCategory.value = 'common'
     specKeyword.value = ''
     progressPercent.value = 0
@@ -455,6 +530,7 @@ export function useStudio() {
     processTagType.value = 'success'
     Object.assign(report, { faceOk: false, faceScore: 0, isRephoto: false, isAiImage: false })
     clearViews()
+    refreshPhotoSpecs().catch(() => {})
     message.info('已重置')
   }
 
@@ -488,10 +564,15 @@ export function useStudio() {
 
   function onTemplateChange(value) {
     params.template = value
+    if (value && value !== 'custom') {
+      photoSpecMeta.current = value
+      IDPhotoService.SetCurrentPhotoSpec(value).catch(() => {})
+    }
   }
 
   function applyCustomSpec() {
     params.template = 'custom'
+    IDPhotoService.SetCurrentPhotoSpec('').catch(() => {})
     message.success(`已应用自定义尺寸 ${params.customWidth}×${params.customHeight} mm`)
   }
 
@@ -501,6 +582,7 @@ export function useStudio() {
     if (key === 'custom') {
       params.template = 'custom'
     }
+    refreshPhotoSpecs().catch(() => {})
   }
 
   function openExportModal() {

@@ -56,13 +56,87 @@ async function apiJSON(path, body, method = 'POST') {
   const res = await fetch(`/api${path}`, {
     method,
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
   })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error(data.error || `HTTP ${res.status}`)
   }
   return data
+}
+
+function preferValue(current, fallback) {
+  return current || fallback || ''
+}
+
+function normalizePhotoCatalog(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const list = raw.list || raw.List || []
+  const categories = raw.categories || raw.Categories || []
+  return {
+    list: list.map((item) => ({
+      value: item.value || item.Value,
+      title: item.title || item.Title,
+      desc: item.desc || item.Desc,
+      categories: item.categories || item.Categories || [],
+      keywords: item.keywords || item.Keywords || '',
+      widthMm: item.widthMm ?? item.WidthMM,
+      heightMm: item.heightMm ?? item.HeightMM,
+      widthPx: item.widthPx ?? item.WidthPx,
+      heightPx: item.heightPx ?? item.HeightPx,
+      unit: item.unit || item.Unit || 'mm',
+    })),
+    default: raw.default || raw.Default || '',
+    current: raw.current || raw.Current || '',
+    categories: categories.map((c) => ({
+      key: c.key || c.Key,
+      label: c.label || c.Label,
+    })),
+  }
+}
+
+function normalizePaperCatalog(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const list = raw.list || raw.List || []
+  return {
+    list: list.map((item) => ({
+      value: item.value || item.Value,
+      title: item.title || item.Title,
+      desc: item.desc || item.Desc,
+      widthMm: item.widthMm ?? item.WidthMM,
+      heightMm: item.heightMm ?? item.HeightMM,
+    })),
+    default: raw.default || raw.Default || '',
+    current: raw.current || raw.Current || '',
+  }
+}
+
+const FALLBACK_PHOTO_SPECS = {
+  list: [
+    { value: 'one_inch', title: '一寸', desc: '25×35 mm', categories: ['common', 'id'], keywords: '一寸 常用' },
+    { value: 'two_inch', title: '二寸', desc: '35×49 mm', categories: ['common', 'id'], keywords: '二寸 常用' },
+    { value: 'passport', title: '护照', desc: '33×48 mm', categories: ['common', 'visa', 'id'], keywords: '护照 出国' },
+  ],
+  default: 'one_inch',
+  current: '',
+  categories: [
+    { key: 'common', label: '常用' },
+    { key: 'visa', label: '签职' },
+    { key: 'id', label: '证件' },
+    { key: 'school', label: '升学' },
+    { key: 'exam', label: '考试' },
+    { key: 'custom', label: '自定义' },
+  ],
+}
+
+const FALLBACK_PAPER_SPECS = {
+  list: [
+    { value: '5inch', title: '5寸', desc: '89×127 mm' },
+    { value: '6inch', title: '6寸', desc: '102×152 mm' },
+    { value: 'a4', title: 'A4', desc: '210×297 mm' },
+  ],
+  default: '6inch',
+  current: '',
 }
 
 function makePlaceholderThumb(label, bg = '#e8eef5') {
@@ -317,4 +391,67 @@ export const IDPhotoService = {
     }
     return { running: false, port: 8787, url: '', addr: '' }
   },
+
+  async GetPhotoSpecs(query = {}) {
+    const q = { keyword: query.keyword || '', category: query.category || '' }
+    const res = await tryGo('GetPhotoSpecs', q)
+    if (res !== undefined) return normalizePhotoCatalog(res) || FALLBACK_PHOTO_SPECS
+    if (await detectHttpMode()) {
+      const qs = new URLSearchParams()
+      if (q.keyword) qs.set('keyword', q.keyword)
+      if (q.category) qs.set('category', q.category)
+      const suffix = qs.toString() ? `?${qs}` : ''
+      const raw = await apiJSON(`/photo-specs${suffix}`, null, 'GET')
+      return normalizePhotoCatalog(raw) || FALLBACK_PHOTO_SPECS
+    }
+    // offline mock: local filter
+    const keyword = String(q.keyword || '').trim().toLowerCase()
+    const category = String(q.category || '').trim()
+    let list = FALLBACK_PHOTO_SPECS.list
+    if (keyword) {
+      list = list.filter((item) => `${item.title} ${item.desc} ${item.keywords}`.toLowerCase().includes(keyword))
+    } else if (category && category !== 'custom') {
+      list = list.filter((item) => item.categories.includes(category))
+    }
+    return { ...FALLBACK_PHOTO_SPECS, list }
+  },
+
+  async GetPaperSpecs(query = {}) {
+    const q = { keyword: query.keyword || '', category: query.category || '' }
+    const res = await tryGo('GetPaperSpecs', q)
+    if (res !== undefined) return normalizePaperCatalog(res) || FALLBACK_PAPER_SPECS
+    if (await detectHttpMode()) {
+      const qs = new URLSearchParams()
+      if (q.keyword) qs.set('keyword', q.keyword)
+      const suffix = qs.toString() ? `?${qs}` : ''
+      const raw = await apiJSON(`/paper-specs${suffix}`, null, 'GET')
+      return normalizePaperCatalog(raw) || FALLBACK_PAPER_SPECS
+    }
+    const keyword = String(q.keyword || '').trim().toLowerCase()
+    let list = FALLBACK_PAPER_SPECS.list
+    if (keyword) {
+      list = list.filter((item) => `${item.title} ${item.desc}`.toLowerCase().includes(keyword))
+    }
+    return { ...FALLBACK_PAPER_SPECS, list }
+  },
+
+  async SetCurrentPhotoSpec(value) {
+    const res = await tryGo('SetCurrentPhotoSpec', value)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/photo-specs/current', { value })
+    }
+    return null
+  },
+
+  async SetCurrentPaperSpec(value) {
+    const res = await tryGo('SetCurrentPaperSpec', value)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/paper-specs/current', { value })
+    }
+    return null
+  },
+
+  preferValue,
 }

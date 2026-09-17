@@ -72,6 +72,10 @@ func (s *Server) Start(port int) (string, error) {
 	api.POST("/load-image", s.handleLoadImage)
 	api.POST("/generate", s.handleGenerate)
 	api.POST("/export", s.handleExport)
+	api.GET("/photo-specs", s.handlePhotoSpecs)
+	api.GET("/paper-specs", s.handlePaperSpecs)
+	api.POST("/photo-specs/current", s.handleSetPhotoSpec)
+	api.POST("/paper-specs/current", s.handleSetPaperSpec)
 
 	if s.assets != nil {
 		fileServer := http.FileServer(http.FS(s.assets))
@@ -188,6 +192,53 @@ func (s *Server) handleExport(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) handlePhotoSpecs(c echo.Context) error {
+	q := core.SpecQuery{
+		Keyword:  c.QueryParam("keyword"),
+		Category: c.QueryParam("category"),
+	}
+	res, err := s.svc.GetPhotoSpecs(q)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) handlePaperSpecs(c echo.Context) error {
+	q := core.SpecQuery{Keyword: c.QueryParam("keyword")}
+	res, err := s.svc.GetPaperSpecs(q)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+type currentSpecReq struct {
+	Value string `json:"value"`
+}
+
+func (s *Server) handleSetPhotoSpec(c echo.Context) error {
+	var req currentSpecReq
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := s.svc.SetCurrentPhotoSpec(req.Value); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})
+}
+
+func (s *Server) handleSetPaperSpec(c echo.Context) error {
+	var req currentSpecReq
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := s.svc.SetCurrentPaperSpec(req.Value); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})
 }
 
 func serveIndex(c echo.Context, assets fs.FS) error {

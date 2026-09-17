@@ -204,7 +204,157 @@ export namespace core {
 		    return a;
 		}
 	}
+	export class PaperSpec {
+	    value: string;
+	    title: string;
+	    desc: string;
+	    widthMm?: number;
+	    heightMm?: number;
 	
+	    static createFrom(source: any = {}) {
+	        return new PaperSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.value = source["value"];
+	        this.title = source["title"];
+	        this.desc = source["desc"];
+	        this.widthMm = source["widthMm"];
+	        this.heightMm = source["heightMm"];
+	    }
+	}
+	export class PaperSpecCatalog {
+	    list: PaperSpec[];
+	    default: string;
+	    current: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PaperSpecCatalog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.list = this.convertValues(source["list"], PaperSpec);
+	        this.default = source["default"];
+	        this.current = source["current"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class PhotoSpec {
+	    value: string;
+	    title: string;
+	    desc: string;
+	    categories: string[];
+	    keywords: string;
+	    widthMm?: number;
+	    heightMm?: number;
+	    widthPx?: number;
+	    heightPx?: number;
+	    unit?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PhotoSpec(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.value = source["value"];
+	        this.title = source["title"];
+	        this.desc = source["desc"];
+	        this.categories = source["categories"];
+	        this.keywords = source["keywords"];
+	        this.widthMm = source["widthMm"];
+	        this.heightMm = source["heightMm"];
+	        this.widthPx = source["widthPx"];
+	        this.heightPx = source["heightPx"];
+	        this.unit = source["unit"];
+	    }
+	}
+	export class SpecCategory {
+	    key: string;
+	    label: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpecCategory(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.label = source["label"];
+	    }
+	}
+	export class PhotoSpecCatalog {
+	    list: PhotoSpec[];
+	    default: string;
+	    current: string;
+	    categories: SpecCategory[];
+	
+	    static createFrom(source: any = {}) {
+	        return new PhotoSpecCatalog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.list = this.convertValues(source["list"], PhotoSpec);
+	        this.default = source["default"];
+	        this.current = source["current"];
+	        this.categories = this.convertValues(source["categories"], SpecCategory);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
+	export class SpecQuery {
+	    keyword: string;
+	    category: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SpecQuery(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.keyword = source["keyword"];
+	        this.category = source["category"];
+	    }
+	}
 
 }
 

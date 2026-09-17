@@ -1,12 +1,12 @@
 <script setup>
-import { CLOTH_OPTIONS, PAPER_SIZES, formatVal } from '../../constants/studio'
+import { CLOTH_OPTIONS, formatVal } from '../../constants/studio'
 
 defineProps({
   params: { type: Object, required: true },
   expandedPanels: { type: Array, required: true },
   clothOptions: { type: Array, default: () => CLOTH_OPTIONS },
-  paperSizes: { type: Array, default: () => PAPER_SIZES },
-  currentPaperLabel: { type: String, default: '6寸' },
+  paperSizes: { type: Array, default: () => [] },
+  currentPaperLabel: { type: String, default: '纸张' },
 })
 
 const emit = defineEmits(['update:expandedPanels'])

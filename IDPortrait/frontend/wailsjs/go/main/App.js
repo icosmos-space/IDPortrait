@@ -10,6 +10,14 @@ export function Generate(arg1) {
   return window['go']['main']['App']['Generate'](arg1);
 }
 
+export function GetPaperSpecs(arg1) {
+  return window['go']['main']['App']['GetPaperSpecs'](arg1);
+}
+
+export function GetPhotoSpecs(arg1) {
+  return window['go']['main']['App']['GetPhotoSpecs'](arg1);
+}
+
 export function GetRemoteStatus() {
   return window['go']['main']['App']['GetRemoteStatus']();
 }
@@ -28,6 +36,14 @@ export function OpenImageDialog() {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SetCurrentPaperSpec(arg1) {
+  return window['go']['main']['App']['SetCurrentPaperSpec'](arg1);
+}
+
+export function SetCurrentPhotoSpec(arg1) {
+  return window['go']['main']['App']['SetCurrentPhotoSpec'](arg1);
 }
 
 export function StartRemoteServer(arg1) {
