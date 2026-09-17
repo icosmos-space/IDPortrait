@@ -1,0 +1,86 @@
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --ink: #2a2430;
+  --ink-soft: #6b6170;
+  --ink-faint: #9a90a0;
+  --paper: #f3eef2;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-solid: #fffcfd;
+  --panel-muted: #faf6f8;
+  --line: rgba(70, 50, 70, 0.1);
+  --line-strong: rgba(70, 50, 70, 0.16);
+  --rose: #c45b7a;
+  --rose-deep: #a34460;
+  --rose-soft: #f7e6ec;
+  --accent: #c45b7a;
+  --accent-deep: #a34460;
+  --accent-soft: #f7e6ec;
+  --ok: #3d8b63;
+  --warn: #a67c2a;
+  --bad: #c45b5b;
+  --stage: #ebe4ea;
+  --shadow: 0 12px 28px rgba(70, 40, 60, 0.08);
+  --radius: 16px;
+  --font-ui: "Nunito", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-display: "Songti SC", "STSong", "Noto Serif SC", "SimSun", serif;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  background:
+    radial-gradient(900px 480px at 8% -8%, #f6dfe8 0%, transparent 55%),
+    radial-gradient(800px 420px at 100% 0%, #efe6ea 0%, transparent 50%),
+    linear-gradient(180deg, #f7f2f5 0%, #eee8ee 100%);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Wails / Naive Provider 链路必须逐级撑满，否则界面上下留白 */
+html {
+  height: 100%;
+}
+
+body,
+#app {
+  height: 100%;
+  min-height: 100%;
+}
+
+#app,
+#app > .n-config-provider,
+.n-config-provider,
+.n-config-provider > .n-message-provider,
+.n-message-provider {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.n-message-provider > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@font-face {
+  font-family: "Nunito";
+  font-style: normal;
+  font-weight: 400;
+  src: local(""), url("assets/fonts/nunito-v16-latin-regular.woff2") format("woff2");
+}
+
+button,
+input {
+  font-family: inherit;
+}
