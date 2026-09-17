@@ -1,13 +1,22 @@
 package server
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"io/fs"
+	"math/big"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"IDPortrait/core"
 	"IDPortrait/service"
@@ -16,7 +25,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-// Server wraps Echo HTTP server for remote browser access.
+// Server wraps Echo HTTPS server for remote browser access.
+// HTTPS is required so browsers allow camera (getUserMedia) on LAN IPs.
 type Server struct {
 	mu      sync.Mutex
 	echo    *echo.Echo
@@ -31,7 +41,7 @@ func New(svc service.IDPhotoService, assets fs.FS) *Server {
 	return &Server{svc: svc, assets: assets}
 }
 
-// Start listens on 0.0.0.0:port and serves SPA + /api.
+// Start listens on 0.0.0.0:port with a self-signed TLS cert and serves SPA + /api.
 func (s *Server) Start(port int) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -40,6 +50,11 @@ func (s *Server) Start(port int) (string, error) {
 	}
 	if port <= 0 || port > 65535 {
 		port = 8787
+	}
+
+	cert, err := selfSignedCert()
+	if err != nil {
+		return "", fmt.Errorf("generate tls cert: %w", err)
 	}
 
 	e := echo.New()
@@ -65,7 +80,6 @@ func (s *Server) Start(port int) (string, error) {
 			if path == "/" || path == "" {
 				return serveIndex(c, s.assets)
 			}
-			// try static file; fall back to SPA index
 			f, err := s.assets.Open(strings.TrimPrefix(path, "/"))
 			if err != nil {
 				return serveIndex(c, s.assets)
@@ -80,13 +94,18 @@ func (s *Server) Start(port int) (string, error) {
 		})
 	}
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	tlsCfg := &tls.Config{
+		MinVersion:   tls.VersionTLS12,
+		Certificates: []tls.Certificate{cert},
+	}
+	ln, err := tls.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port), tlsCfg)
 	if err != nil {
 		return "", err
 	}
+
 	s.echo = e
 	s.port = port
-	s.addr = fmt.Sprintf("http://%s:%d", localIP(), port)
+	s.addr = fmt.Sprintf("https://%s:%d", localIP(), port)
 	s.running = true
 
 	go func() {
@@ -118,6 +137,7 @@ func (s *Server) Status() map[string]any {
 		"port":    s.port,
 		"addr":    s.addr,
 		"url":     s.addr,
+		"tls":     true,
 	}
 }
 
@@ -180,6 +200,50 @@ func serveIndex(c echo.Context, assets fs.FS) error {
 	c.Response().WriteHeader(http.StatusOK)
 	_, err = io.Copy(c.Response(), f)
 	return err
+}
+
+func selfSignedCert() (tls.Certificate, error) {
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	ip := net.ParseIP(localIP())
+	tmpl := &x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			Organization: []string{"IDPortrait"},
+			CommonName:   "IDPortrait Remote",
+		},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"localhost"},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+	}
+	if ip != nil {
+		tmpl.IPAddresses = append(tmpl.IPAddresses, ip)
+	}
+
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyDER, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyDER})
+	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
 func localIP() string {

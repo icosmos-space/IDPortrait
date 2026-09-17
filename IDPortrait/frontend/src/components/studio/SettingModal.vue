@@ -85,7 +85,9 @@ function onRemoteSwitch(v) {
 
       <div class="remote-block">
         <div class="remote-title">远程服务</div>
-        <p class="remote-desc">开启后，局域网内其他电脑可用浏览器打开同一界面。</p>
+        <p class="remote-desc">
+          开启后以 HTTPS 提供服务（摄像头需要安全连接）。其他设备用下方地址访问；首次会提示证书不受信任，选择继续访问即可。
+        </p>
         <div class="field switch-row">
           <label>启动远程服务</label>
           <n-switch

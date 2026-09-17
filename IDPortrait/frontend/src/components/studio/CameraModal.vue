@@ -14,6 +14,7 @@ const cameraStream = ref(null)
 const cameraReady = ref(false)
 const cameraError = ref('')
 const capturing = ref(false)
+const fileInput = ref(null)
 
 function stopCamera() {
   if (cameraStream.value) {
@@ -26,12 +27,23 @@ function stopCamera() {
   cameraReady.value = false
 }
 
+function cameraUnavailableReason() {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return '当前页面不是安全连接（需 HTTPS）。请使用设置中的 https 地址访问，并在浏览器中信任证书后再试。'
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return '当前环境不支持摄像头。请改用 HTTPS 访问，或从相册选择照片。'
+  }
+  return ''
+}
+
 async function startCamera() {
   stopCamera()
   cameraError.value = ''
   cameraReady.value = false
-  if (!navigator.mediaDevices?.getUserMedia) {
-    cameraError.value = '当前环境不支持摄像头'
+  const reason = cameraUnavailableReason()
+  if (reason) {
+    cameraError.value = reason
     return
   }
   try {
@@ -71,6 +83,49 @@ watch(
 
 function close() {
   emit('update:show', false)
+}
+
+function pickFromAlbum() {
+  fileInput.value?.click()
+}
+
+function onFilePicked(e) {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  const reader = new FileReader()
+  reader.onload = () => {
+    const dataUrl = String(reader.result || '')
+    if (!dataUrl) {
+      message.error('读取图片失败')
+      return
+    }
+    const img = new Image()
+    img.onload = () => {
+      const w = img.naturalWidth || 1280
+      const h = img.naturalHeight || 720
+      const faceBox = [
+        Math.round(w * 0.28),
+        Math.round(h * 0.16),
+        Math.round(w * 0.72),
+        Math.round(h * 0.72),
+      ]
+      const cx = (faceBox[0] + faceBox[2]) / 2
+      const cy = (faceBox[1] + faceBox[3]) / 2
+      const landmarks = [
+        cx - w * 0.08, cy - h * 0.06,
+        cx + w * 0.08, cy - h * 0.06,
+        cx, cy + h * 0.02,
+        cx - w * 0.06, cy + h * 0.1,
+        cx + w * 0.06, cy + h * 0.1,
+      ]
+      emit('capture', { dataUrl, faceBox, landmarks })
+    }
+    img.onerror = () => message.error('图片无法预览')
+    img.src = dataUrl
+  }
+  reader.onerror = () => message.error('读取图片失败')
+  reader.readAsDataURL(file)
 }
 
 function capturePhoto() {
@@ -135,12 +190,21 @@ function capturePhoto() {
         <p v-if="cameraError" class="camera-error">{{ cameraError }}</p>
         <p v-else-if="!cameraReady" class="camera-loading">正在打开摄像头…</p>
       </div>
-      <p class="camera-tip">请正对镜头，保持面部居中后点击拍照</p>
+      <p class="camera-tip">请正对镜头，保持面部居中后点击拍照；也可用相册选图</p>
+      <input
+        ref="fileInput"
+        type="file"
+        accept="image/*"
+        capture="user"
+        hidden
+        @change="onFilePicked"
+      />
     </div>
     <template #footer>
       <div class="modal-actions">
         <button class="btn ghost" type="button" @click="close">取消</button>
-        <button class="btn ghost" type="button" :disabled="!!cameraError" @click="startCamera">重试</button>
+        <button class="btn ghost" type="button" @click="pickFromAlbum">相册选图</button>
+        <button class="btn ghost" type="button" @click="startCamera">重试</button>
         <button
           class="btn primary"
           type="button"
