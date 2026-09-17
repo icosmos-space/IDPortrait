@@ -80,9 +80,6 @@ const {
   <div class="studio">
     <StudioTopbar
       :processing="processing"
-      :status-text="statusText"
-      :status-tone="statusTone"
-      :progress-percent="progressPercent"
       @open-image="openImage"
       @open-camera="openCameraModal"
       @reset="resetAll"
@@ -119,6 +116,9 @@ const {
       :current-result-hint="currentResultHint"
       :diagnostics="diagnostics"
       :beauty-strength="params.beautyStrength"
+      :status-text="statusText"
+      :status-tone="statusTone"
+      :progress-percent="progressPercent"
       @drop="handleDrop"
       @switch-result-tab="switchResultTab"
     />
