@@ -143,7 +143,7 @@ function drawResult(imgData) {
   const ctx = canvas.getContext('2d')
   const img = new Image()
   img.onload = () => {
-    const maxW = props.activeResultTab === 'layout' ? 420 : 360
+    const maxW = 360
     const maxH = 480
     const scale = Math.min(maxW / img.width, maxH / img.height, 1)
     canvas.width = Math.max(1, Math.round(img.width * scale))

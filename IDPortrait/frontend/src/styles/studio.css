@@ -659,15 +659,17 @@
 }
 
 .frame {
-  width: min(360px, 42%);
+  width: min(380px, 44%);
   min-width: 220px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  align-self: stretch;
+  min-height: 0;
 }
 
 .frame.result {
-  width: min(440px, 48%);
+  width: min(380px, 44%);
 }
 
 .frame-head {
@@ -675,6 +677,7 @@
   align-items: baseline;
   justify-content: space-between;
   padding: 0 2px;
+  flex: 0 0 auto;
 }
 
 .frame-head span {
@@ -692,7 +695,7 @@
 
 .frame-body {
   position: relative;
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -700,7 +703,9 @@
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.9);
-  min-height: 0;
+  min-height: 420px;
+  height: 0;
+  overflow: hidden;
 }
 
 .frame.result .frame-body {
@@ -715,6 +720,11 @@
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.55);
   border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.frame:not(.result) .result-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .result-tab {
@@ -742,7 +752,7 @@
 
 .frame-body canvas {
   max-width: 100%;
-  max-height: min(100%, 480px);
+  max-height: 100%;
   width: auto;
   height: auto;
   object-fit: contain;
