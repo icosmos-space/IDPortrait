@@ -6,6 +6,7 @@ import StudioPreview from './components/studio/StudioPreview.vue'
 import StudioRightRail from './components/studio/StudioRightRail.vue'
 import CameraModal from './components/studio/CameraModal.vue'
 import ExportModal from './components/studio/ExportModal.vue'
+import PrintModal from './components/studio/PrintModal.vue'
 import SettingModal from './components/studio/SettingModal.vue'
 import AboutModal from './components/studio/AboutModal.vue'
 import UpgradeModal from './components/studio/UpgradeModal.vue'
@@ -26,6 +27,7 @@ const {
   originView,
   mattingView,
   resultView,
+  resultSet,
   currentResultHint,
   currentOriginHint,
   params,
@@ -42,6 +44,7 @@ const {
   filteredSpecs,
   showCustomSpec,
   showExportModal,
+  showPrintModal,
   showSettingModal,
   showAboutModal,
   showUpgradeModal,
@@ -50,6 +53,7 @@ const {
   checkingUpgrade,
   exportDir,
   exportOpt,
+  printCopies,
   setting,
   remoteStatus,
   remoteBusy,
@@ -69,6 +73,8 @@ const {
   switchResultTab,
   switchOriginTab,
   openExportModal,
+  openPrintModal,
+  doPrint,
   selectExportDir,
   doExport,
   openSettingModal,
@@ -91,6 +97,7 @@ const {
       @reset="resetAll"
       @generate="runGenerate"
       @export="openExportModal"
+      @print="openPrintModal"
     />
 
     <StudioLeftRail
@@ -153,6 +160,14 @@ const {
       :export-dir="exportDir"
       @select-dir="selectExportDir"
       @export="doExport"
+    />
+
+    <PrintModal
+      v-model:show="showPrintModal"
+      v-model:copies="printCopies"
+      :layout-img="resultSet.layout"
+      :paper-label="currentPaperLabel"
+      @print="doPrint"
     />
 
     <SettingModal

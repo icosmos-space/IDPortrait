@@ -6,7 +6,7 @@ defineProps({
   processing: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['open-image', 'open-camera', 'reset', 'generate', 'export'])
+const emit = defineEmits(['open-image', 'open-camera', 'reset', 'generate', 'export', 'print'])
 
 const isWails = ref(false)
 const maximised = ref(false)
@@ -58,6 +58,7 @@ function closeWindow() {
         {{ processing ? '精修中…' : '开始生成' }}
       </button>
       <button class="btn ghost" type="button" @click="emit('export')">导出</button>
+      <button class="btn ghost" type="button" @click="emit('print')">打印</button>
     </div>
 
     <div v-if="isWails" class="window-controls" aria-label="窗口控制" @dblclick.stop>
