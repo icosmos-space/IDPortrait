@@ -30,6 +30,10 @@ export function GetRemoteStatus() {
   return window['go']['main']['App']['GetRemoteStatus']();
 }
 
+export function GetWatermarkConfig() {
+  return window['go']['main']['App']['GetWatermarkConfig']();
+}
+
 export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
@@ -60,6 +64,10 @@ export function SetCurrentPaperSpec(arg1) {
 
 export function SetCurrentPhotoSpec(arg1) {
   return window['go']['main']['App']['SetCurrentPhotoSpec'](arg1);
+}
+
+export function SetWatermarkConfig(arg1) {
+  return window['go']['main']['App']['SetWatermarkConfig'](arg1);
 }
 
 export function StartRemoteServer(arg1) {

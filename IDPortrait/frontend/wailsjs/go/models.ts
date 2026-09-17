@@ -52,7 +52,13 @@ export namespace core {
 	    enableCloth: boolean;
 	    clothType: string;
 	    clothFit: number;
-	    addWatermark: boolean;
+	    enableWatermark: boolean;
+	    watermarkText: string;
+	    watermarkColor: string;
+	    watermarkFontSize: number;
+	    watermarkOpacity: number;
+	    watermarkAngle: number;
+	    watermarkSpacing: number;
 	    genPrintLayout: boolean;
 	    paperSize: string;
 	    enableTargetFileSize: boolean;
@@ -87,7 +93,13 @@ export namespace core {
 	        this.enableCloth = source["enableCloth"];
 	        this.clothType = source["clothType"];
 	        this.clothFit = source["clothFit"];
-	        this.addWatermark = source["addWatermark"];
+	        this.enableWatermark = source["enableWatermark"];
+	        this.watermarkText = source["watermarkText"];
+	        this.watermarkColor = source["watermarkColor"];
+	        this.watermarkFontSize = source["watermarkFontSize"];
+	        this.watermarkOpacity = source["watermarkOpacity"];
+	        this.watermarkAngle = source["watermarkAngle"];
+	        this.watermarkSpacing = source["watermarkSpacing"];
 	        this.genPrintLayout = source["genPrintLayout"];
 	        this.paperSize = source["paperSize"];
 	        this.enableTargetFileSize = source["enableTargetFileSize"];
@@ -413,6 +425,62 @@ export namespace core {
 	        this.keyword = source["keyword"];
 	        this.category = source["category"];
 	    }
+	}
+	export class WatermarkSettings {
+	    enabled: boolean;
+	    text: string;
+	    color: string;
+	    fontSize: number;
+	    opacity: number;
+	    angle: number;
+	    spacing: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WatermarkSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.text = source["text"];
+	        this.color = source["color"];
+	        this.fontSize = source["fontSize"];
+	        this.opacity = source["opacity"];
+	        this.angle = source["angle"];
+	        this.spacing = source["spacing"];
+	    }
+	}
+	export class WatermarkConfigResult {
+	    default: WatermarkSettings;
+	    current?: WatermarkSettings;
+	
+	    static createFrom(source: any = {}) {
+	        return new WatermarkConfigResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.default = this.convertValues(source["default"], WatermarkSettings);
+	        this.current = this.convertValues(source["current"], WatermarkSettings);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 
 }

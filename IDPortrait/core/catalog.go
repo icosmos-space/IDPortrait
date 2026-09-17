@@ -145,3 +145,34 @@ func BuiltinMattingModels() []ModelOption {
 		{Value: "rmbg", Title: "RMBG", Desc: "背景移除专用", Keywords: "rmbg 去背景"},
 	}
 }
+
+// WatermarkSettings holds visible watermark appearance options.
+type WatermarkSettings struct {
+	Enabled  bool    `json:"enabled"`
+	Text     string  `json:"text"`
+	Color    string  `json:"color"`
+	FontSize float64 `json:"fontSize"`
+	Opacity  float64 `json:"opacity"`
+	Angle    float64 `json:"angle"`
+	Spacing  float64 `json:"spacing"`
+}
+
+// WatermarkConfigResult is returned by the watermark config service.
+// Frontend should prefer Current when non-nil, otherwise Default.
+type WatermarkConfigResult struct {
+	Default WatermarkSettings  `json:"default"`
+	Current *WatermarkSettings `json:"current"`
+}
+
+// DefaultWatermarkSettings returns built-in watermark defaults.
+func DefaultWatermarkSettings() WatermarkSettings {
+	return WatermarkSettings{
+		Enabled:  false,
+		Text:     "最美证件照",
+		Color:    "#FFFFFF",
+		FontSize: 18,
+		Opacity:  0.28,
+		Angle:    -30,
+		Spacing:  120,
+	}
+}

@@ -164,6 +164,39 @@ const FALLBACK_MATTING_MODELS = {
   current: '',
 }
 
+const FALLBACK_WATERMARK = {
+  enabled: false,
+  text: '最美证件照',
+  color: '#FFFFFF',
+  fontSize: 18,
+  opacity: 0.28,
+  angle: -30,
+  spacing: 120,
+}
+
+function normalizeWatermarkSettings(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  return {
+    enabled: !!(raw.enabled ?? raw.Enabled),
+    text: raw.text || raw.Text || FALLBACK_WATERMARK.text,
+    color: raw.color || raw.Color || FALLBACK_WATERMARK.color,
+    fontSize: Number(raw.fontSize ?? raw.FontSize ?? FALLBACK_WATERMARK.fontSize),
+    opacity: Number(raw.opacity ?? raw.Opacity ?? FALLBACK_WATERMARK.opacity),
+    angle: Number(raw.angle ?? raw.Angle ?? FALLBACK_WATERMARK.angle),
+    spacing: Number(raw.spacing ?? raw.Spacing ?? FALLBACK_WATERMARK.spacing),
+  }
+}
+
+function normalizeWatermarkConfig(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { default: FALLBACK_WATERMARK, current: null }
+  }
+  return {
+    default: normalizeWatermarkSettings(raw.default || raw.Default) || FALLBACK_WATERMARK,
+    current: normalizeWatermarkSettings(raw.current || raw.Current),
+  }
+}
+
 function makePlaceholderThumb(label, bg = '#e8eef5') {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="80">
     <rect width="64" height="80" fill="${bg}"/>
@@ -530,6 +563,37 @@ export const IDPhotoService = {
     if (res !== undefined) return res
     if (await detectHttpMode()) {
       return apiJSON('/matting-models/current', { value })
+    }
+    return null
+  },
+
+  async GetWatermarkConfig() {
+    const res = await tryGo('GetWatermarkConfig')
+    if (res !== undefined) return normalizeWatermarkConfig(res)
+    if (await detectHttpMode()) {
+      const raw = await apiJSON('/watermark-config', null, 'GET')
+      return normalizeWatermarkConfig(raw)
+    }
+    return {
+      default: FALLBACK_WATERMARK,
+      current: null,
+    }
+  },
+
+  async SetWatermarkConfig(settings) {
+    const payload = {
+      enabled: !!settings.enabled,
+      text: settings.text || '',
+      color: settings.color || '#FFFFFF',
+      fontSize: Number(settings.fontSize) || 18,
+      opacity: Number(settings.opacity) || 0.28,
+      angle: Number(settings.angle) || 0,
+      spacing: Number(settings.spacing) || 120,
+    }
+    const res = await tryGo('SetWatermarkConfig', payload)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/watermark-config', payload)
     }
     return null
   },

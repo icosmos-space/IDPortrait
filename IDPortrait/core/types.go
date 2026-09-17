@@ -29,7 +29,13 @@ type GenerateParams struct {
 	EnableCloth    bool    `json:"enableCloth"`
 	ClothType      string  `json:"clothType"`
 	ClothFit       float64 `json:"clothFit"`
-	AddWatermark   bool    `json:"addWatermark"`
+	EnableWatermark bool   `json:"enableWatermark"`
+	WatermarkText  string  `json:"watermarkText"`
+	WatermarkColor string  `json:"watermarkColor"`
+	WatermarkFontSize float64 `json:"watermarkFontSize"`
+	WatermarkOpacity  float64 `json:"watermarkOpacity"`
+	WatermarkAngle    float64 `json:"watermarkAngle"`
+	WatermarkSpacing  float64 `json:"watermarkSpacing"`
 	GenPrintLayout bool    `json:"genPrintLayout"`
 	PaperSize      string  `json:"paperSize"`
 	EnableTargetFileSize bool `json:"enableTargetFileSize"`

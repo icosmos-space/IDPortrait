@@ -16,10 +16,12 @@ type IDPhotoService interface {
 	GetPaperSpecs(query core.SpecQuery) (*core.PaperSpecCatalog, error)
 	GetFaceDetectModels(query core.SpecQuery) (*core.ModelCatalog, error)
 	GetMattingModels(query core.SpecQuery) (*core.ModelCatalog, error)
+	GetWatermarkConfig() (*core.WatermarkConfigResult, error)
 	SetCurrentPhotoSpec(value string) error
 	SetCurrentPaperSpec(value string) error
 	SetCurrentFaceDetectModel(value string) error
 	SetCurrentMattingModel(value string) error
+	SetWatermarkConfig(settings core.WatermarkSettings) error
 }
 
 // Service is the default implementation backed by core.Engine.

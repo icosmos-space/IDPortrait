@@ -140,6 +140,53 @@ const emit = defineEmits(['update:expandedPanels'])
         </div>
       </n-collapse-item>
 
+      <n-collapse-item title="水印" name="watermark">
+        <div class="field switch-row">
+          <label>开启水印</label>
+          <n-switch v-model:value="params.enableWatermark" size="small" />
+        </div>
+        <template v-if="params.enableWatermark">
+          <div class="field">
+            <label>水印文字</label>
+            <n-input v-model:value="params.watermarkText" size="small" placeholder="请输入水印文字" />
+          </div>
+          <div class="field">
+            <label>水印颜色</label>
+            <div class="field-row">
+              <n-color-picker v-model:value="params.watermarkColor" :show-alpha="false" size="small" style="width: 100%" />
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-row">
+              <label>文字大小</label>
+              <span>{{ Math.round(params.watermarkFontSize) }}</span>
+            </div>
+            <n-slider v-model:value="params.watermarkFontSize" :min="8" :max="72" :step="1" />
+          </div>
+          <div class="field">
+            <div class="field-row">
+              <label>水印透明度</label>
+              <span>{{ formatVal(params.watermarkOpacity) }}</span>
+            </div>
+            <n-slider v-model:value="params.watermarkOpacity" :min="0.05" :max="1" :step="0.01" />
+          </div>
+          <div class="field">
+            <div class="field-row">
+              <label>水印角度</label>
+              <span>{{ Math.round(params.watermarkAngle) }}°</span>
+            </div>
+            <n-slider v-model:value="params.watermarkAngle" :min="-90" :max="90" :step="1" />
+          </div>
+          <div class="field">
+            <div class="field-row">
+              <label>水印间距</label>
+              <span>{{ Math.round(params.watermarkSpacing) }}</span>
+            </div>
+            <n-slider v-model:value="params.watermarkSpacing" :min="40" :max="400" :step="4" />
+          </div>
+        </template>
+      </n-collapse-item>
+
       <n-collapse-item title="高级选项" name="adv">
         <div class="field">
           <label>人脸检测模型</label>
@@ -158,10 +205,6 @@ const emit = defineEmits(['update:expandedPanels'])
             size="small"
             placeholder="选择抠图模型"
           />
-        </div>
-        <div class="field switch-row">
-          <label>溯源盲水印</label>
-          <n-switch v-model:value="params.addWatermark" size="small" />
         </div>
         <div class="field switch-row">
           <label>6 寸打印排版</label>

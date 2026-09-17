@@ -97,6 +97,14 @@ func (a *App) SetCurrentMattingModel(value string) error {
 	return a.svc.SetCurrentMattingModel(value)
 }
 
+func (a *App) GetWatermarkConfig() (*core.WatermarkConfigResult, error) {
+	return a.svc.GetWatermarkConfig()
+}
+
+func (a *App) SetWatermarkConfig(settings core.WatermarkSettings) error {
+	return a.svc.SetWatermarkConfig(settings)
+}
+
 func (a *App) OpenImageDialog() (string, error) {
 	if a.ctx == nil {
 		return "", fmt.Errorf("app not ready")

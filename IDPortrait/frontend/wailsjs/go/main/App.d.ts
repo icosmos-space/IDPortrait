@@ -16,6 +16,8 @@ export function GetPhotoSpecs(arg1:core.SpecQuery):Promise<core.PhotoSpecCatalog
 
 export function GetRemoteStatus():Promise<Record<string, any>>;
 
+export function GetWatermarkConfig():Promise<core.WatermarkConfigResult>;
+
 export function Greet(arg1:string):Promise<string>;
 
 export function LoadImage(arg1:string):Promise<core.LoadImageResult>;
@@ -31,6 +33,8 @@ export function SetCurrentMattingModel(arg1:string):Promise<void>;
 export function SetCurrentPaperSpec(arg1:string):Promise<void>;
 
 export function SetCurrentPhotoSpec(arg1:string):Promise<void>;
+
+export function SetWatermarkConfig(arg1:core.WatermarkSettings):Promise<void>;
 
 export function StartRemoteServer(arg1:number):Promise<Record<string, any>>;
 

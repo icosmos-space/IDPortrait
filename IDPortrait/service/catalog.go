@@ -11,10 +11,11 @@ import (
 
 // userConfig holds persisted preferences (current selections).
 type userConfig struct {
-	CurrentPhotoSpec       string `json:"currentPhotoSpec"`
-	CurrentPaperSpec       string `json:"currentPaperSpec"`
-	CurrentFaceDetectModel string `json:"currentFaceDetectModel"`
-	CurrentMattingModel    string `json:"currentMattingModel"`
+	CurrentPhotoSpec       string                  `json:"currentPhotoSpec"`
+	CurrentPaperSpec       string                  `json:"currentPaperSpec"`
+	CurrentFaceDetectModel string                  `json:"currentFaceDetectModel"`
+	CurrentMattingModel    string                  `json:"currentMattingModel"`
+	Watermark              *core.WatermarkSettings `json:"watermark,omitempty"`
 }
 
 func (s *Service) configPath() string {
@@ -287,4 +288,65 @@ func (s *Service) SetCurrentMattingModel(value string) error {
 	s.cfgLoaded = true
 	s.cfgMu.Unlock()
 	return s.saveConfig()
+}
+
+// GetWatermarkConfig returns default and current watermark settings.
+func (s *Service) GetWatermarkConfig() (*core.WatermarkConfigResult, error) {
+	cfg := s.loadConfig()
+	out := &core.WatermarkConfigResult{
+		Default: core.DefaultWatermarkSettings(),
+	}
+	if cfg.Watermark != nil {
+		cp := *cfg.Watermark
+		normalizeWatermark(&cp)
+		out.Current = &cp
+	}
+	return out, nil
+}
+
+// SetWatermarkConfig persists the current watermark settings.
+func (s *Service) SetWatermarkConfig(settings core.WatermarkSettings) error {
+	normalizeWatermark(&settings)
+	cp := settings
+	s.cfgMu.Lock()
+	s.cfg.Watermark = &cp
+	s.cfgLoaded = true
+	s.cfgMu.Unlock()
+	return s.saveConfig()
+}
+
+func normalizeWatermark(w *core.WatermarkSettings) {
+	if w == nil {
+		return
+	}
+	if strings.TrimSpace(w.Text) == "" {
+		w.Text = "最美证件照"
+	}
+	if strings.TrimSpace(w.Color) == "" {
+		w.Color = "#FFFFFF"
+	}
+	if w.FontSize < 8 {
+		w.FontSize = 8
+	}
+	if w.FontSize > 72 {
+		w.FontSize = 72
+	}
+	if w.Opacity < 0 {
+		w.Opacity = 0
+	}
+	if w.Opacity > 1 {
+		w.Opacity = 1
+	}
+	if w.Angle < -90 {
+		w.Angle = -90
+	}
+	if w.Angle > 90 {
+		w.Angle = 90
+	}
+	if w.Spacing < 40 {
+		w.Spacing = 40
+	}
+	if w.Spacing > 400 {
+		w.Spacing = 400
+	}
 }

@@ -76,10 +76,12 @@ func (s *Server) Start(port int) (string, error) {
 	api.GET("/paper-specs", s.handlePaperSpecs)
 	api.GET("/face-detect-models", s.handleFaceDetectModels)
 	api.GET("/matting-models", s.handleMattingModels)
+	api.GET("/watermark-config", s.handleWatermarkConfig)
 	api.POST("/photo-specs/current", s.handleSetPhotoSpec)
 	api.POST("/paper-specs/current", s.handleSetPaperSpec)
 	api.POST("/face-detect-models/current", s.handleSetFaceDetectModel)
 	api.POST("/matting-models/current", s.handleSetMattingModel)
+	api.POST("/watermark-config", s.handleSetWatermarkConfig)
 
 	if s.assets != nil {
 		fileServer := http.FileServer(http.FS(s.assets))
@@ -283,6 +285,25 @@ func (s *Server) handleSetMattingModel(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})
+}
+
+func (s *Server) handleWatermarkConfig(c echo.Context) error {
+	res, err := s.svc.GetWatermarkConfig()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) handleSetWatermarkConfig(c echo.Context) error {
+	var req core.WatermarkSettings
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := s.svc.SetWatermarkConfig(req); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"ok": true})
 }
 
 func serveIndex(c echo.Context, assets fs.FS) error {

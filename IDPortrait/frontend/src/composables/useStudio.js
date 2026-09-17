@@ -364,11 +364,12 @@ export function useStudio() {
   }
 
   async function loadCatalogs() {
-    const [photoFull, paperFull, faceFull, mattingFull] = await Promise.all([
+    const [photoFull, paperFull, faceFull, mattingFull, watermarkCfg] = await Promise.all([
       IDPhotoService.GetPhotoSpecs({ keyword: '', category: '' }),
       IDPhotoService.GetPaperSpecs({ keyword: '' }),
       IDPhotoService.GetFaceDetectModels({ keyword: '' }),
       IDPhotoService.GetMattingModels({ keyword: '' }),
+      IDPhotoService.GetWatermarkConfig(),
     ])
     if (photoFull?.categories?.length) {
       specCategories.value = photoFull.categories
@@ -385,7 +386,42 @@ export function useStudio() {
     faceDetectModels.value = faceFull?.list || []
     mattingModels.value = mattingFull?.list || []
     applyPreferredSpecs(photoFull, paperFull, faceFull, mattingFull)
+    applyWatermarkConfig(watermarkCfg)
     await refreshPhotoSpecs()
+  }
+
+  function applyWatermarkConfig(cfg) {
+    const wm = cfg?.current || cfg?.default
+    if (!wm) return
+    params.enableWatermark = !!wm.enabled
+    params.watermarkText = wm.text || '最美证件照'
+    params.watermarkColor = wm.color || '#FFFFFF'
+    params.watermarkFontSize = Number(wm.fontSize) || 18
+    params.watermarkOpacity = Number(wm.opacity) || 0.28
+    params.watermarkAngle = Number(wm.angle) || -30
+    params.watermarkSpacing = Number(wm.spacing) || 120
+  }
+
+  function currentWatermarkPayload() {
+    return {
+      enabled: !!params.enableWatermark,
+      text: params.watermarkText,
+      color: params.watermarkColor,
+      fontSize: params.watermarkFontSize,
+      opacity: params.watermarkOpacity,
+      angle: params.watermarkAngle,
+      spacing: params.watermarkSpacing,
+    }
+  }
+
+  let watermarkSaveTimer = null
+  let watermarkReady = false
+  function scheduleSaveWatermark() {
+    if (!watermarkReady) return
+    clearTimeout(watermarkSaveTimer)
+    watermarkSaveTimer = setTimeout(() => {
+      IDPhotoService.SetWatermarkConfig(currentWatermarkPayload()).catch(() => {})
+    }, 280)
   }
 
   onMounted(async () => {
@@ -405,11 +441,14 @@ export function useStudio() {
       await loadCatalogs()
     } catch (e) {
       message.warning(e?.message || '规格列表加载失败，已使用本地兜底')
+    } finally {
+      watermarkReady = true
     }
   })
 
   onBeforeUnmount(() => {
     clearTimeout(specSearchTimer)
+    clearTimeout(watermarkSaveTimer)
     unbinders.forEach((off) => typeof off === 'function' && off())
     window.removeEventListener('IDPhoto.OnProgress', onMockProgress)
     window.removeEventListener('IDPhoto.OnDone', onMockDone)
@@ -458,6 +497,19 @@ export function useStudio() {
       IDPhotoService.SetCurrentMattingModel(value).catch(() => {})
       mattingMeta.current = value
     },
+  )
+
+  watch(
+    () => [
+      params.enableWatermark,
+      params.watermarkText,
+      params.watermarkColor,
+      params.watermarkFontSize,
+      params.watermarkOpacity,
+      params.watermarkAngle,
+      params.watermarkSpacing,
+    ],
+    () => scheduleSaveWatermark(),
   )
 
   function previewModeStyle(mode) {
@@ -551,6 +603,7 @@ export function useStudio() {
   }
 
   function resetAll() {
+    watermarkReady = false
     Object.assign(params, createDefaultParams())
     const photoID = IDPhotoService.preferValue(photoSpecMeta.current, photoSpecMeta.default)
     const paperID = IDPhotoService.preferValue(paperSpecMeta.current, paperSpecMeta.default)
@@ -560,6 +613,14 @@ export function useStudio() {
     if (paperID) params.paperSize = paperID
     if (faceID) params.faceDetectModel = faceID
     if (mattingID) params.mattingModel = mattingID
+    IDPhotoService.GetWatermarkConfig()
+      .then((cfg) => {
+        applyWatermarkConfig(cfg)
+        watermarkReady = true
+      })
+      .catch(() => {
+        watermarkReady = true
+      })
     activeSpecCategory.value = 'common'
     specKeyword.value = ''
     progressPercent.value = 0
