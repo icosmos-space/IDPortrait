@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/http"
+	"os"
+	"strings"
+	"time"
 
 	"IDPortrait/core"
 	"IDPortrait/server"
@@ -15,19 +19,20 @@ import (
 // App is the Wails application facade. Business logic lives in service/core;
 // remote HTTP is served by server package.
 type App struct {
-	ctx     context.Context
-	svc     *service.Service
-	remote  *server.Server
-	assets  fs.FS
+	ctx    context.Context
+	svc    *service.Service
+	remote *server.Server
+	assets fs.FS
 }
 
-// NewApp creates a new App application struct
-func NewApp(assets fs.FS) *App {
+// NewApp creates a new App application struct.
+// devFrontend is the Vite URL used by `wails dev` (e.g. http://localhost:5173).
+func NewApp(assets fs.FS, devFrontend string) *App {
 	engine := core.NewEngine()
 	svc := service.New(engine)
 	return &App{
 		svc:    svc,
-		remote: server.New(svc, assets),
+		remote: server.New(svc, assets, devFrontend),
 		assets: assets,
 	}
 }
@@ -130,6 +135,10 @@ func (a *App) SelectFolder() (string, error) {
 
 // StartRemoteServer starts Echo HTTP server so other devices can open the UI.
 func (a *App) StartRemoteServer(port int) (map[string]any, error) {
+	// Re-detect Vite at start time: during `wails dev` it may come up after Go.
+	if dev := detectFrontendDevServer(); dev != "" {
+		a.remote.SetDevFrontend(dev)
+	}
 	addr, err := a.remote.Start(port)
 	if err != nil {
 		return nil, err
@@ -148,4 +157,30 @@ func (a *App) StopRemoteServer() error {
 // GetRemoteStatus returns remote server running state.
 func (a *App) GetRemoteStatus() map[string]any {
 	return a.remote.Status()
+}
+
+// detectFrontendDevServer finds the Vite URL used by `wails dev`.
+func detectFrontendDevServer() string {
+	if v := strings.TrimSpace(os.Getenv("WAILS_FRONTEND_DEVSERVER_URL")); v != "" {
+		return v
+	}
+	if v := strings.TrimSpace(os.Getenv("FRONTEND_DEV_SERVER")); v != "" {
+		return v
+	}
+	candidates := []string{
+		"http://127.0.0.1:5173",
+		"http://localhost:5173",
+	}
+	client := &http.Client{Timeout: 300 * time.Millisecond}
+	for _, u := range candidates {
+		resp, err := client.Get(u)
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode > 0 {
+			return u
+		}
+	}
+	return ""
 }

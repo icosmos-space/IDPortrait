@@ -14,6 +14,8 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -28,18 +30,30 @@ import (
 // Server wraps Echo HTTPS server for remote browser access.
 // HTTPS is required so browsers allow camera (getUserMedia) on LAN IPs.
 type Server struct {
-	mu      sync.Mutex
-	router  *echo.Echo
-	svc     service.IDPhotoService
-	assets  fs.FS
-	running bool
-	addr    string
-	port    int
+	mu          sync.Mutex
+	router      *echo.Echo
+	svc         service.IDPhotoService
+	assets      fs.FS
+	devFrontend string // e.g. http://127.0.0.1:5173 during wails dev
+	running     bool
+	addr        string
+	port        int
 }
 
-func New(svc service.IDPhotoService, assets fs.FS) *Server {
-	return &Server{svc: svc, assets: assets}
+func New(svc service.IDPhotoService, assets fs.FS, devFrontend string) *Server {
+	return &Server{svc: svc, assets: assets, devFrontend: strings.TrimRight(strings.TrimSpace(devFrontend), "/")}
 }
+
+// SetDevFrontend updates the Vite proxy target (useful when Vite starts after the app).
+func (s *Server) SetDevFrontend(devFrontend string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.running {
+		return
+	}
+	s.devFrontend = strings.TrimRight(strings.TrimSpace(devFrontend), "/")
+}
+
 
 // Start listens on 0.0.0.0:port with a self-signed TLS cert and serves SPA + /api.
 func (s *Server) Start(port int) (string, error) {
@@ -83,26 +97,7 @@ func (s *Server) Start(port int) (string, error) {
 	api.POST("/matting-models/current", s.handleSetMattingModel)
 	api.POST("/watermark-config", s.handleSetWatermarkConfig)
 
-	if s.assets != nil {
-		fileServer := http.FileServer(http.FS(s.assets))
-		e.GET("/*", func(c echo.Context) error {
-			path := c.Request().URL.Path
-			if path == "/" || path == "" {
-				return serveIndex(c, s.assets)
-			}
-			f, err := s.assets.Open(strings.TrimPrefix(path, "/"))
-			if err != nil {
-				return serveIndex(c, s.assets)
-			}
-			_ = f.Close()
-			fileServer.ServeHTTP(c.Response(), c.Request())
-			return nil
-		})
-	} else {
-		e.GET("/", func(c echo.Context) error {
-			return c.HTML(http.StatusOK, "<h1>IDPortrait remote API</h1><p>/api/health</p>")
-		})
-	}
+	s.mountFrontend(e)
 
 	tlsCfg := &tls.Config{
 		MinVersion:   tls.VersionTLS12,
@@ -142,13 +137,65 @@ func (s *Server) Stop() error {
 func (s *Server) Status() map[string]any {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return map[string]any{
-		"running": s.running,
-		"port":    s.port,
-		"addr":    s.addr,
-		"url":     s.addr,
-		"tls":     true,
+	frontend := "embed"
+	if s.devFrontend != "" {
+		frontend = "dev-proxy:" + s.devFrontend
+	} else if s.assets != nil {
+		frontend = "assets"
 	}
+	return map[string]any{
+		"running":  s.running,
+		"port":     s.port,
+		"addr":     s.addr,
+		"url":      s.addr,
+		"tls":      true,
+		"frontend": frontend,
+	}
+}
+
+func (s *Server) mountFrontend(e *echo.Echo) {
+	if s.devFrontend != "" {
+		target, err := url.Parse(s.devFrontend)
+		if err == nil {
+			proxy := httputil.NewSingleHostReverseProxy(target)
+			defaultDirector := proxy.Director
+			proxy.Director = func(req *http.Request) {
+				defaultDirector(req)
+				req.Host = target.Host
+				req.Header.Set("X-Forwarded-Proto", "https")
+			}
+			proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+				http.Error(w, "frontend dev server unavailable: "+err.Error(), http.StatusBadGateway)
+			}
+			e.Any("/*", func(c echo.Context) error {
+				proxy.ServeHTTP(c.Response(), c.Request())
+				return nil
+			})
+			return
+		}
+	}
+
+	if s.assets != nil {
+		fileServer := http.FileServer(http.FS(s.assets))
+		e.GET("/*", func(c echo.Context) error {
+			path := c.Request().URL.Path
+			if path == "/" || path == "" {
+				return serveIndex(c, s.assets)
+			}
+			f, err := s.assets.Open(strings.TrimPrefix(path, "/"))
+			if err != nil {
+				return serveIndex(c, s.assets)
+			}
+			_ = f.Close()
+			fileServer.ServeHTTP(c.Response(), c.Request())
+			return nil
+		})
+		return
+	}
+
+	e.GET("/", func(c echo.Context) error {
+		return c.HTML(http.StatusOK, "<h1>IDPortrait remote API</h1><p>/api/health</p>")
+	})
 }
 
 func (s *Server) handleHealth(c echo.Context) error {

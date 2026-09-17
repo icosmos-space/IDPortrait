@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"log"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/logger"
@@ -19,6 +20,10 @@ var assets embed.FS
 var icon []byte
 
 func frontendAssets() fs.FS {
+	// Prefer on-disk dist when present so remote can pick up fresh builds.
+	if _, err := os.Stat("frontend/dist/index.html"); err == nil {
+		return os.DirFS("frontend/dist")
+	}
 	sub, err := fs.Sub(assets, "frontend/dist")
 	if err != nil {
 		return assets
@@ -27,7 +32,8 @@ func frontendAssets() fs.FS {
 }
 
 func main() {
-	app := NewApp(frontendAssets())
+	devFrontend := detectFrontendDevServer()
+	app := NewApp(frontendAssets(), devFrontend)
 
 	err := wails.Run(&options.App{
 		Title:             "ID Portrait - 最美证件照",
