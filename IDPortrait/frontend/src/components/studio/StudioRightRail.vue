@@ -208,6 +208,20 @@ const emit = defineEmits(['update:expandedPanels'])
             placeholder="选择抠图模型"
           />
         </div>
+        <div class="field">
+          <div class="field-row">
+            <label>面部比例</label>
+            <span>{{ formatVal(params.faceRatio) }}</span>
+          </div>
+          <n-slider v-model:value="params.faceRatio" :min="0.45" :max="0.85" :step="0.01" />
+        </div>
+        <div class="field">
+          <div class="field-row">
+            <label>头距顶距离</label>
+            <span>{{ formatVal(params.headTopDistance) }}</span>
+          </div>
+          <n-slider v-model:value="params.headTopDistance" :min="0.02" :max="0.2" :step="0.01" />
+        </div>
         <div class="field switch-row">
           <label>6 寸打印排版</label>
           <n-switch v-model:value="params.genPrintLayout" size="small" />

@@ -64,6 +64,8 @@ export namespace core {
 	    enableTargetFileSize: boolean;
 	    targetFileSize: number;
 	    maskFeather: number;
+	    faceRatio: number;
+	    headTopDistance: number;
 	    faceDetectModel: string;
 	    mattingModel: string;
 	    sourceImg: string;
@@ -105,6 +107,8 @@ export namespace core {
 	        this.enableTargetFileSize = source["enableTargetFileSize"];
 	        this.targetFileSize = source["targetFileSize"];
 	        this.maskFeather = source["maskFeather"];
+	        this.faceRatio = source["faceRatio"];
+	        this.headTopDistance = source["headTopDistance"];
 	        this.faceDetectModel = source["faceDetectModel"];
 	        this.mattingModel = source["mattingModel"];
 	        this.sourceImg = source["sourceImg"];

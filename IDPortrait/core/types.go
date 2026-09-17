@@ -41,6 +41,8 @@ type GenerateParams struct {
 	EnableTargetFileSize bool `json:"enableTargetFileSize"`
 	TargetFileSize int     `json:"targetFileSize"`
 	MaskFeather    float64 `json:"maskFeather"`
+	FaceRatio      float64 `json:"faceRatio"`
+	HeadTopDistance float64 `json:"headTopDistance"`
 	FaceDetectModel string `json:"faceDetectModel"`
 	MattingModel    string `json:"mattingModel"`
 	// SourceImg is the current origin photo as a data URL.
