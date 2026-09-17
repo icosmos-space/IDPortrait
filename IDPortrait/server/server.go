@@ -29,7 +29,7 @@ import (
 // HTTPS is required so browsers allow camera (getUserMedia) on LAN IPs.
 type Server struct {
 	mu      sync.Mutex
-	echo    *echo.Echo
+	router  *echo.Echo
 	svc     service.IDPhotoService
 	assets  fs.FS
 	running bool
@@ -103,7 +103,7 @@ func (s *Server) Start(port int) (string, error) {
 		return "", err
 	}
 
-	s.echo = e
+	s.router = e
 	s.port = port
 	s.addr = fmt.Sprintf("https://%s:%d", localIP(), port)
 	s.running = true
@@ -118,13 +118,13 @@ func (s *Server) Start(port int) (string, error) {
 func (s *Server) Stop() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.running || s.echo == nil {
+	if !s.running || s.router == nil {
 		s.running = false
 		return nil
 	}
-	err := s.echo.Close()
+	err := s.router.Close()
 	s.running = false
-	s.echo = nil
+	s.router = nil
 	s.addr = ""
 	return err
 }

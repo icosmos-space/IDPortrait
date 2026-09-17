@@ -6,13 +6,18 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
+
+	_ "image/gif"
 )
 
 // Engine hosts ID-photo processing algorithms.
-// Current implementation is a scaffold that produces placeholder images
-// so HTTP / Wails paths can share the same service contract.
+// Current implementation loads real source images and returns placeholder
+// generation outputs so HTTP / Wails paths share the same service contract.
 type Engine struct{}
 
 func NewEngine() *Engine {
@@ -20,18 +25,58 @@ func NewEngine() *Engine {
 }
 
 func (e *Engine) LoadImage(path string) (*LoadImageResult, error) {
-	label := path
-	if i := strings.LastIndexAny(path, `/\`); i >= 0 {
-		label = path[i+1:]
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil, fmt.Errorf("empty image path")
 	}
-	if label == "" {
-		label = "photo"
+
+	var dataURL string
+	var bounds image.Rectangle
+
+	switch {
+	case strings.HasPrefix(path, "data:image/"):
+		dataURL = path
+		img, err := decodeDataURL(path)
+		if err != nil {
+			return nil, err
+		}
+		bounds = img.Bounds()
+	default:
+		img, format, err := loadImageFile(path)
+		if err != nil {
+			return nil, err
+		}
+		dataURL, err = encodeDataURL(img, format)
+		if err != nil {
+			return nil, err
+		}
+		bounds = img.Bounds()
 	}
-	img := placeholderPNG(360, 480, color.RGBA{R: 241, G: 245, B: 249, A: 255}, label)
+
+	w := bounds.Dx()
+	h := bounds.Dy()
+	if w <= 0 {
+		w = 360
+	}
+	if h <= 0 {
+		h = 480
+	}
+
 	return &LoadImageResult{
-		ImgBase64: img,
-		FaceBox:   []float64{90, 80, 270, 300},
-		Landmarks: []float64{140, 160, 220, 160, 180, 210, 150, 250, 210, 250},
+		ImgBase64: dataURL,
+		FaceBox: []float64{
+			float64(w) * 0.25,
+			float64(h) * 0.16,
+			float64(w) * 0.75,
+			float64(h) * 0.72,
+		},
+		Landmarks: []float64{
+			float64(w) * 0.38, float64(h) * 0.36,
+			float64(w) * 0.62, float64(h) * 0.36,
+			float64(w) * 0.50, float64(h) * 0.48,
+			float64(w) * 0.40, float64(h) * 0.58,
+			float64(w) * 0.60, float64(h) * 0.58,
+		},
 		Report: Report{
 			FaceOK:    true,
 			FaceScore: 0.92,
@@ -81,6 +126,52 @@ func (e *Engine) Export(dir string, _ ExportOptions) (*ExportResult, error) {
 	return &ExportResult{OK: true, Dir: dir}, nil
 }
 
+func loadImageFile(path string) (image.Image, string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, "", fmt.Errorf("open image: %w", err)
+	}
+	defer f.Close()
+	img, format, err := image.Decode(f)
+	if err != nil {
+		return nil, "", fmt.Errorf("decode image %s: %w", filepath.Base(path), err)
+	}
+	return img, format, nil
+}
+
+func decodeDataURL(dataURL string) (image.Image, error) {
+	parts := strings.SplitN(dataURL, ",", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid data url")
+	}
+	raw, err := base64.StdEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("decode data url: %w", err)
+	}
+	img, _, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return nil, fmt.Errorf("decode data url image: %w", err)
+	}
+	return img, nil
+}
+
+func encodeDataURL(img image.Image, format string) (string, error) {
+	var buf bytes.Buffer
+	mime := "image/png"
+	switch strings.ToLower(format) {
+	case "jpeg", "jpg":
+		mime = "image/jpeg"
+		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 92}); err != nil {
+			return "", err
+		}
+	default:
+		if err := png.Encode(&buf, img); err != nil {
+			return "", err
+		}
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
 func placeholderPNG(w, h int, bg color.RGBA, label string) string {
 	return placeholderPNGMode(w, h, bg, "solid", label)
 }
@@ -107,9 +198,8 @@ func placeholderPNGMode(w, h int, bg color.RGBA, mode, label string) string {
 			img.Set(x, y, c)
 		}
 	}
-	// simple silhouette block
 	for y := h / 5; y < h*4/5; y++ {
-		for x := w/3; x < w*2/3; x++ {
+		for x := w / 3; x < w*2/3; x++ {
 			img.Set(x, y, color.RGBA{R: 71, G: 85, B: 105, A: 255})
 		}
 	}

@@ -170,14 +170,35 @@ export const IDPhotoService = {
   async OpenImageDialog() {
     const res = await tryGo('OpenImageDialog')
     if (res !== undefined) return res
-    if (await detectHttpMode()) {
-      // 远程浏览器无法访问本机文件对话框，返回占位路径
-      return `remote://upload-${Date.now()}.jpg`
-    }
-    return `mock://sample-${Date.now()}.jpg`
+    // 浏览器 / 远程页：交给前端 input[type=file]
+    return ''
   },
 
   async LoadImage(path) {
+    // 已是 data URL 时直接用于预览，避免再走占位图
+    if (typeof path === 'string' && path.startsWith('data:image/')) {
+      const goRes = await tryGo('LoadImage', path)
+      if (goRes !== undefined) return goRes
+      if (await detectHttpMode()) {
+        try {
+          return await apiJSON('/load-image', { path })
+        } catch {
+          // 超大图 POST 失败时本地兜底预览
+        }
+      }
+      return {
+        imgBase64: path,
+        faceBox: [90, 80, 270, 300],
+        landmarks: [140, 160, 220, 160, 180, 210, 150, 250, 210, 250],
+        report: {
+          faceOk: true,
+          faceScore: 0.92,
+          isRephoto: false,
+          isAiImage: false,
+        },
+      }
+    }
+
     const res = await tryGo('LoadImage', path)
     if (res !== undefined) return res
     if (await detectHttpMode()) {

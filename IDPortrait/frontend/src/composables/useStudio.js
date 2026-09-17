@@ -151,8 +151,68 @@ export function useStudio() {
       hasOrigin.value = false
       return
     }
-    originView.value = { img, faceBox: faceBox || [], landmarks: landmarks || [] }
+    originView.value = {
+      img,
+      faceBox: Array.isArray(faceBox) ? faceBox : [],
+      landmarks: Array.isArray(landmarks) ? landmarks : [],
+      _ts: Date.now(),
+    }
     hasOrigin.value = true
+  }
+
+  function normalizeLoadResult(ret) {
+    if (!ret || typeof ret !== 'object') return null
+    const report = ret.report || ret.Report || {}
+    return {
+      imgBase64: ret.imgBase64 || ret.ImgBase64 || ret.img || '',
+      faceBox: ret.faceBox || ret.FaceBox || [],
+      landmarks: ret.landmarks || ret.Landmarks || [],
+      report: {
+        faceOk: report.faceOk ?? report.FaceOK ?? false,
+        faceScore: report.faceScore ?? report.FaceScore ?? 0,
+        isRephoto: report.isRephoto ?? report.IsRephoto ?? false,
+        isAiImage: report.isAiImage ?? report.IsAiImage ?? false,
+      },
+    }
+  }
+
+  function pickImageFile() {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.style.display = 'none'
+      const cleanup = () => {
+        input.remove()
+      }
+      input.addEventListener('change', () => {
+        const file = input.files?.[0]
+        cleanup()
+        if (!file) {
+          resolve('')
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result || ''))
+        reader.onerror = () => resolve('')
+        reader.readAsDataURL(file)
+      })
+      input.addEventListener('cancel', () => {
+        cleanup()
+        resolve('')
+      })
+      document.body.appendChild(input)
+      input.click()
+    })
+  }
+
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('读取图片失败'))
+      reader.readAsDataURL(file)
+    })
   }
 
   function showActiveResult() {
@@ -257,9 +317,20 @@ export function useStudio() {
   }
 
   async function openImage() {
-    const res = await IDPhotoService.OpenImageDialog()
-    if (!res) return
-    await loadImage(res)
+    try {
+      const hasWailsDialog = typeof window !== 'undefined' && !!window.go?.main?.App?.OpenImageDialog
+      if (hasWailsDialog) {
+        const path = await IDPhotoService.OpenImageDialog()
+        if (!path) return
+        await loadImage(path)
+        return
+      }
+      const dataUrl = await pickImageFile()
+      if (!dataUrl) return
+      await loadImage(dataUrl)
+    } catch (e) {
+      message.error(e?.message || '打开图片失败')
+    }
   }
 
   function openCameraModal() {
@@ -271,6 +342,10 @@ export function useStudio() {
   }
 
   function applyCapture({ dataUrl, faceBox, landmarks }) {
+    if (!dataUrl) {
+      message.error('拍照结果为空')
+      return
+    }
     Object.assign(report, {
       faceOk: true,
       faceScore: 0.91,
@@ -284,18 +359,47 @@ export function useStudio() {
     message.success('拍照成功')
   }
 
-  async function loadImage(path) {
-    const ret = await IDPhotoService.LoadImage(path)
-    Object.assign(report, ret.report)
-    setOriginView(ret.imgBase64, ret.faceBox, ret.landmarks)
-    statusText.value = '已加载图片'
-    processTagType.value = 'success'
+  async function loadImage(pathOrDataUrl) {
+    try {
+      let payload = pathOrDataUrl
+      // 浏览器拖入的 File 或本地路径无法被远程服务读取时，先转 data URL
+      if (typeof pathOrDataUrl === 'object' && pathOrDataUrl?.dataUrl) {
+        payload = pathOrDataUrl.dataUrl
+      }
+      const raw = await IDPhotoService.LoadImage(payload)
+      const ret = normalizeLoadResult(raw)
+      if (!ret?.imgBase64) {
+        throw new Error('未获取到图片数据')
+      }
+      Object.assign(report, ret.report)
+      setOriginView(ret.imgBase64, ret.faceBox, ret.landmarks)
+      statusText.value = '已加载图片'
+      processTagType.value = 'success'
+    } catch (e) {
+      message.error(e?.message || '加载图片失败')
+      statusText.value = '加载失败'
+      processTagType.value = 'error'
+    }
   }
 
-  function handleDrop(e) {
+  async function handleDrop(e) {
     const file = e.dataTransfer?.files?.[0]
     if (!file) return
-    loadImage(file.path || file.name)
+    if (!String(file.type || '').startsWith('image/') && !/\.(jpe?g|png|bmp|webp|gif)$/i.test(file.name || '')) {
+      message.warning('请拖入图片文件')
+      return
+    }
+    try {
+      // WebView / 浏览器通常没有 file.path，统一读成 data URL
+      if (file.path) {
+        await loadImage(file.path)
+        return
+      }
+      const dataUrl = await readFileAsDataURL(file)
+      await loadImage(dataUrl)
+    } catch (err) {
+      message.error(err?.message || '拖放加载失败')
+    }
   }
 
   function resetAll() {

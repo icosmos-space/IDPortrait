@@ -51,8 +51,12 @@ function drawOrigin(view) {
   const ctx = canvas.getContext('2d')
   const img = new Image()
   img.onload = () => {
-    canvas.width = 360
-    canvas.height = Math.round((360 * img.height) / img.width) || 480
+    const maxW = 360
+    const maxH = 480
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+    canvas.width = Math.max(1, Math.round(img.width * scale))
+    canvas.height = Math.max(1, Math.round(img.height * scale))
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     const sx = canvas.width / img.width
     const sy = canvas.height / img.height
@@ -76,6 +80,9 @@ function drawOrigin(view) {
         ctx.fill()
       }
     }
+  }
+  img.onerror = () => {
+    paintPlaceholder(canvas, '原图加载失败', '请重新选择图片')
   }
   img.src = view.img
 }
