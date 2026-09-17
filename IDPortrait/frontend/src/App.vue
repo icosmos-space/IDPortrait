@@ -7,7 +7,7 @@ const message = useMessage()
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
-const expandedPanels = ref(['bg', 'beauty'])
+const expandedPanels = ref(['beauty'])
 const processing = ref(false)
 const progressPercent = ref(0)
 const statusText = ref('就绪')
@@ -440,6 +440,27 @@ function formatVal(v) {
     </header>
 
     <aside class="rail left">
+      <section class="rail-section">
+        <div class="section-label">背景设置</div>
+        <div class="field">
+          <label>背景颜色</label>
+          <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" />
+        </div>
+        <div class="swatches">
+          <button
+            v-for="c in bgPresets"
+            :key="c.value"
+            type="button"
+            class="swatch"
+            :class="{ active: params.bgPreset === c.value }"
+            :style="{ '--swatch': c.value }"
+            @click="params.bgPreset = c.value"
+          >
+            {{ c.label }}
+          </button>
+        </div>
+      </section>
+
       <section class="rail-section grow">
         <div class="section-label">证件规格</div>
         <div class="template-grid">
@@ -536,26 +557,6 @@ function formatVal(v) {
     <aside class="rail right">
       <div class="section-label">精修参数</div>
       <n-collapse v-model:expanded-names="expandedPanels" accordion display-directive="show">
-        <n-collapse-item title="背景设置" name="bg">
-          <div class="field">
-            <label>背景颜色</label>
-            <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" />
-          </div>
-          <div class="swatches">
-            <button
-              v-for="c in bgPresets"
-              :key="c.value"
-              type="button"
-              class="swatch"
-              :class="{ active: params.bgPreset === c.value }"
-              :style="{ '--swatch': c.value }"
-              @click="params.bgPreset = c.value"
-            >
-              {{ c.label }}
-            </button>
-          </div>
-        </n-collapse-item>
-
         <n-collapse-item title="基础美颜" name="beauty">
           <div class="field">
             <div class="field-row">
@@ -1007,6 +1008,8 @@ function formatVal(v) {
 .rail-section.grow {
   flex: 1;
   min-height: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
 
 .section-label,
