@@ -66,7 +66,6 @@ const report = reactive({
   isAiImage: false,
 })
 
-const historyList = ref([])
 const showExportModal = ref(false)
 const showSettingModal = ref(false)
 const exportDir = ref('')
@@ -155,7 +154,6 @@ onMounted(async () => {
   window.addEventListener('IDPhoto.OnDone', onMockDone)
   window.addEventListener('IDPhoto.OnError', onMockError)
 
-  historyList.value = await IDPhotoService.GetHistory()
   initEmptyCanvases()
 })
 
@@ -262,10 +260,6 @@ async function loadImage(path) {
   drawOriginCanvas(ret.imgBase64, ret.faceBox, ret.landmarks)
   statusText.value = '已加载图片'
   processTagType.value = 'success'
-}
-
-async function loadHistory(item) {
-  await loadImage(item.path)
 }
 
 function handleDrop(e) {
@@ -392,22 +386,6 @@ function formatVal(v) {
     </header>
 
     <aside class="rail left">
-      <section class="rail-section">
-        <div class="section-label">最近作品</div>
-        <div class="history-list">
-          <button
-            v-for="(item, idx) in historyList"
-            :key="idx"
-            class="history-item"
-            type="button"
-            @click="loadHistory(item)"
-          >
-            <img :src="item.thumb" :alt="item.name" />
-            <span>{{ item.name }}</span>
-          </button>
-        </div>
-      </section>
-
       <section class="rail-section grow">
         <div class="section-label">证件规格</div>
         <div class="template-grid">
@@ -960,8 +938,6 @@ function formatVal(v) {
 .rail-section.grow {
   flex: 1;
   min-height: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
 }
 
 .section-label,
@@ -973,65 +949,31 @@ function formatVal(v) {
   color: var(--ink-faint);
 }
 
-.history-list,
 .template-grid {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.history-item,
-.template-card {
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: transparent;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
-}
-
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 12px;
-}
-
-.history-item:hover,
-.template-card:hover {
-  background: var(--rose-soft);
-  border-color: rgba(196, 91, 122, 0.18);
-}
-
-.history-item img {
-  width: 34px;
-  height: 42px;
-  object-fit: cover;
-  border-radius: 8px;
-  background: #f0e8ec;
-  flex: none;
-}
-
-.history-item span {
-  font-size: 13px;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .template-card {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  width: 100%;
   padding: 11px 12px;
   border-radius: 12px;
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
-.template-card:hover { transform: translateY(-1px); }
+.template-card:hover {
+  transform: translateY(-1px);
+  background: var(--rose-soft);
+  border-color: rgba(196, 91, 122, 0.18);
+}
 
 .template-card.active {
   border-color: rgba(196, 91, 122, 0.4);
