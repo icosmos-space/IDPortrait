@@ -18,9 +18,11 @@ const emit = defineEmits(['update:expandedPanels'])
   <aside class="rail right">
     <div class="section-label">精修参数</div>
     <n-collapse
+      class="right-collapse"
       :expanded-names="expandedPanels"
       accordion
       display-directive="show"
+      :trigger-areas="['main', 'arrow']"
       @update:expanded-names="(v) => emit('update:expandedPanels', v)"
     >
       <n-collapse-item title="基础美颜" name="beauty">
