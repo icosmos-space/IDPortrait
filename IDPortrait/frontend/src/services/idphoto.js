@@ -4,10 +4,24 @@
  */
 
 const TEMPLATE_PRESETS = {
-  one_white: { bgColor: '#FFFFFF', label: '一寸｜白底' },
-  two_white: { bgColor: '#FFFFFF', label: '二寸｜白底' },
-  passport: { bgColor: '#FFFFFF', label: '小二寸｜护照' },
-  teacher: { bgColor: '#FFFFFF', label: '教资证件照' },
+  one_inch: { bgColor: '#FFFFFF', label: '一寸', w: 25, h: 35 },
+  two_inch: { bgColor: '#FFFFFF', label: '二寸', w: 35, h: 49 },
+  small_two: { bgColor: '#FFFFFF', label: '小二寸', w: 33, h: 48 },
+  large_one: { bgColor: '#FFFFFF', label: '大一寸', w: 33, h: 48 },
+  passport: { bgColor: '#FFFFFF', label: '护照', w: 33, h: 48 },
+  visa_us: { bgColor: '#FFFFFF', label: '美签', w: 51, h: 51 },
+  visa_schengen: { bgColor: '#FFFFFF', label: '申根签', w: 35, h: 45 },
+  visa_jp: { bgColor: '#FFFFFF', label: '日签', w: 45, h: 45 },
+  id_card: { bgColor: '#FFFFFF', label: '身份证', w: 26, h: 32 },
+  driver: { bgColor: '#FFFFFF', label: '驾驶证', w: 22, h: 32 },
+  social: { bgColor: '#FFFFFF', label: '社保卡', w: 26, h: 32 },
+  teacher: { bgColor: '#FFFFFF', label: '教资', w: 25, h: 35 },
+  civil: { bgColor: '#FFFFFF', label: '公务员', w: 25, h: 35 },
+  grad: { bgColor: '#FFFFFF', label: '毕业证', w: 33, h: 48 },
+  student: { bgColor: '#FFFFFF', label: '学生证', w: 25, h: 35 },
+  exam_cet: { bgColor: '#FFFFFF', label: '四六级', w: 144, h: 192, unit: 'px' },
+  exam_cs: { bgColor: '#FFFFFF', label: '计算机等级', w: 144, h: 192, unit: 'px' },
+  exam_nurse: { bgColor: '#FFFFFF', label: '护士资格', w: 25, h: 35 },
   custom: { bgColor: '#FFFFFF', label: '自定义尺寸' },
 }
 
@@ -136,12 +150,21 @@ export const IDPhotoService = {
       await sleep(280)
     }
     const bg = params.bgColor || '#FFFFFF'
+    const paperMap = {
+      '5inch': '5寸',
+      '6inch': '6寸',
+      '7inch': '7寸',
+      a6: 'A6',
+      a5: 'A5',
+      a4: 'A4',
+    }
+    const paperLabel = paperMap[params.paperSize] || '6寸'
     const result = {
       originImg: makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
       resultImg: makeCanvasDataUrl(295, 413, bg, '证件照'),
       results: {
         single: makeCanvasDataUrl(360, 480, bg, '单张照片'),
-        layout: makeLayoutDataUrl(bg, '6寸排版照'),
+        layout: makeLayoutDataUrl(bg, `${paperLabel}排版照`),
         social: makeCanvasDataUrl(400, 400, bg, '社交照'),
         idphoto: makeCanvasDataUrl(295, 413, bg, '证件照'),
       },

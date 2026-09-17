@@ -35,9 +35,11 @@ const currentResultHint = computed(() => {
 })
 
 const params = reactive({
-  template: 'one_white',
+  template: 'one_inch',
   bgColor: '#FFFFFF',
   bgPreset: '#FFFFFF',
+  customWidth: 25,
+  customHeight: 35,
   beautyStrength: 0.22,
   eyeSharp: 0.15,
   skinBright: 0.18,
@@ -53,6 +55,7 @@ const params = reactive({
   clothFit: 0.25,
   addWatermark: false,
   genPrintLayout: true,
+  paperSize: '6inch',
   targetFileSize: 200,
   maskFeather: 0.3,
 })
@@ -64,12 +67,47 @@ const clothOptions = [
   { label: '商务职业照', value: 'business' },
 ]
 
-const templates = [
-  { value: 'one_white', title: '一寸', desc: '25×35 mm · 白底' },
-  { value: 'two_white', title: '二寸', desc: '35×49 mm · 白底' },
-  { value: 'passport', title: '护照', desc: '33×48 mm · 国际规格' },
-  { value: 'teacher', title: '教资', desc: '教师资格证规格' },
-  { value: 'custom', title: '自定义', desc: '自定义尺寸与底色' },
+const paperSizes = [
+  { value: '5inch', title: '5寸', desc: '89×127 mm' },
+  { value: '6inch', title: '6寸', desc: '102×152 mm' },
+  { value: '7inch', title: '7寸', desc: '127×178 mm' },
+  { value: 'a6', title: 'A6', desc: '105×148 mm' },
+  { value: 'a5', title: 'A5', desc: '148×210 mm' },
+  { value: 'a4', title: 'A4', desc: '210×297 mm' },
+]
+
+const currentPaperLabel = computed(() => {
+  return paperSizes.find((p) => p.value === params.paperSize)?.title || '6寸'
+})
+
+const specCategories = [
+  { key: 'common', label: '常用' },
+  { key: 'visa', label: '签职' },
+  { key: 'id', label: '证件' },
+  { key: 'school', label: '升学' },
+  { key: 'exam', label: '考试' },
+  { key: 'custom', label: '自定义' },
+]
+
+const allSpecs = [
+  { value: 'one_inch', title: '一寸', desc: '25×35 mm', categories: ['common', 'id'], keywords: '一寸 常用' },
+  { value: 'two_inch', title: '二寸', desc: '35×49 mm', categories: ['common', 'id'], keywords: '二寸 常用' },
+  { value: 'small_two', title: '小二寸', desc: '33×48 mm', categories: ['common'], keywords: '小二寸' },
+  { value: 'large_one', title: '大一寸', desc: '33×48 mm', categories: ['common'], keywords: '大一寸' },
+  { value: 'passport', title: '护照', desc: '33×48 mm', categories: ['common', 'visa', 'id'], keywords: '护照 出国' },
+  { value: 'visa_us', title: '美签', desc: '51×51 mm', categories: ['visa'], keywords: '美签 美国签证' },
+  { value: 'visa_schengen', title: '申根签', desc: '35×45 mm', categories: ['visa'], keywords: '申根 欧洲签证' },
+  { value: 'visa_jp', title: '日签', desc: '45×45 mm', categories: ['visa'], keywords: '日签 日本签证' },
+  { value: 'id_card', title: '身份证', desc: '26×32 mm', categories: ['id'], keywords: '身份证' },
+  { value: 'driver', title: '驾驶证', desc: '22×32 mm', categories: ['id'], keywords: '驾驶证 驾照' },
+  { value: 'social', title: '社保卡', desc: '26×32 mm', categories: ['id'], keywords: '社保卡' },
+  { value: 'teacher', title: '教资', desc: '25×35 mm · 教师资格', categories: ['exam', 'visa'], keywords: '教资 教师资格' },
+  { value: 'civil', title: '公务员', desc: '25×35 mm', categories: ['exam', 'visa'], keywords: '公务员 国考' },
+  { value: 'grad', title: '毕业证', desc: '33×48 mm', categories: ['school'], keywords: '毕业证 学历' },
+  { value: 'student', title: '学生证', desc: '25×35 mm', categories: ['school'], keywords: '学生证' },
+  { value: 'exam_cet', title: '四六级', desc: '144×192 px', categories: ['exam'], keywords: '英语 四六级 CET' },
+  { value: 'exam_cs', title: '计算机等级', desc: '144×192 px', categories: ['exam'], keywords: '计算机等级 NCRE' },
+  { value: 'exam_nurse', title: '护士资格', desc: '25×35 mm', categories: ['exam'], keywords: '护士资格证' },
 ]
 
 const bgPresets = [
@@ -77,6 +115,25 @@ const bgPresets = [
   { value: '#D92121', label: '红' },
   { value: '#0047AB', label: '蓝' },
 ]
+
+const specKeyword = ref('')
+const activeSpecCategory = ref('common')
+
+const filteredSpecs = computed(() => {
+  if (activeSpecCategory.value === 'custom') return []
+  const q = specKeyword.value.trim().toLowerCase()
+  return allSpecs.filter((item) => {
+    const inCategory = !q
+      ? item.categories.includes(activeSpecCategory.value)
+      : true
+    if (!inCategory) return false
+    if (!q) return true
+    const hay = `${item.title} ${item.desc} ${item.keywords}`.toLowerCase()
+    return hay.includes(q)
+  })
+})
+
+const showCustomSpec = computed(() => activeSpecCategory.value === 'custom' && !specKeyword.value.trim())
 
 const report = reactive({
   faceOk: false,
@@ -323,10 +380,14 @@ function handleDrop(e) {
 }
 
 function resetAll() {
-  params.template = 'one_white'
+  params.template = 'one_inch'
   params.bgColor = '#FFFFFF'
   params.bgPreset = '#FFFFFF'
+  params.customWidth = 25
+  params.customHeight = 35
   params.beautyStrength = 0.22
+  activeSpecCategory.value = 'common'
+  specKeyword.value = ''
   params.eyeSharp = 0.15
   params.skinBright = 0.18
   params.enableMakeup = false
@@ -341,6 +402,7 @@ function resetAll() {
   params.clothFit = 0.25
   params.addWatermark = false
   params.genPrintLayout = true
+  params.paperSize = '6inch'
   params.targetFileSize = 200
   params.maskFeather = 0.3
   progressPercent.value = 0
@@ -366,10 +428,18 @@ async function runGenerate() {
 
 function onTemplateChange(value) {
   params.template = value
-  const preset = IDPhotoService.TEMPLATE_PRESETS[value]
-  if (preset) {
-    params.bgColor = preset.bgColor
-    params.bgPreset = preset.bgColor
+}
+
+function applyCustomSpec() {
+  params.template = 'custom'
+  message.success(`已应用自定义尺寸 ${params.customWidth}×${params.customHeight} mm`)
+}
+
+function selectSpecCategory(key) {
+  activeSpecCategory.value = key
+  specKeyword.value = ''
+  if (key === 'custom') {
+    params.template = 'custom'
   }
 }
 
@@ -440,13 +510,27 @@ function formatVal(v) {
     </header>
 
     <aside class="rail left">
-      <section class="rail-section">
-        <div class="section-label">背景设置</div>
-        <div class="field">
-          <label>背景颜色</label>
-          <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" />
+      <section class="rail-section pin-top">
+        <div class="section-label">打印纸规格</div>
+        <div class="paper-grid">
+          <button
+            v-for="p in paperSizes"
+            :key="p.value"
+            type="button"
+            class="paper-card"
+            :class="{ active: params.paperSize === p.value }"
+            @click="params.paperSize = p.value"
+          >
+            <strong>{{ p.title }}</strong>
+            <span>{{ p.desc }}</span>
+          </button>
         </div>
-        <div class="swatches">
+      </section>
+
+      <section class="rail-section pin-mid">
+        <div class="section-label">背景颜色</div>
+        <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" />
+        <div class="swatches" style="margin-top: 10px">
           <button
             v-for="c in bgPresets"
             :key="c.value"
@@ -461,20 +545,55 @@ function formatVal(v) {
         </div>
       </section>
 
-      <section class="rail-section grow">
+      <section class="rail-section grow specs-section">
         <div class="section-label">证件规格</div>
-        <div class="template-grid">
+        <n-input
+          v-model:value="specKeyword"
+          size="small"
+          clearable
+          placeholder="搜索规格，如护照、教资"
+          class="spec-search"
+        />
+        <div class="spec-cats" role="tablist">
           <button
-            v-for="t in templates"
-            :key="t.value"
+            v-for="cat in specCategories"
+            :key="cat.key"
             type="button"
-            class="template-card"
-            :class="{ active: params.template === t.value }"
-            @click="onTemplateChange(t.value)"
+            class="spec-cat"
+            :class="{ active: activeSpecCategory === cat.key && !specKeyword.trim() }"
+            @click="selectSpecCategory(cat.key)"
           >
-            <strong>{{ t.title }}</strong>
-            <span>{{ t.desc }}</span>
+            {{ cat.label }}
           </button>
+        </div>
+
+        <div class="spec-scroll">
+          <div v-if="showCustomSpec" class="custom-spec">
+            <div class="field">
+              <label>宽度 mm</label>
+              <n-input-number v-model:value="params.customWidth" :min="10" :max="100" size="small" style="width: 100%" />
+            </div>
+            <div class="field">
+              <label>高度 mm</label>
+              <n-input-number v-model:value="params.customHeight" :min="10" :max="140" size="small" style="width: 100%" />
+            </div>
+            <button class="btn primary custom-apply" type="button" @click="applyCustomSpec">应用自定义</button>
+          </div>
+
+          <div v-else class="template-grid">
+            <button
+              v-for="t in filteredSpecs"
+              :key="t.value"
+              type="button"
+              class="template-card"
+              :class="{ active: params.template === t.value }"
+              @click="onTemplateChange(t.value)"
+            >
+              <strong>{{ t.title }}</strong>
+              <span>{{ t.desc }}</span>
+            </button>
+            <p v-if="!filteredSpecs.length" class="spec-empty">未找到匹配规格</p>
+          </div>
         </div>
       </section>
     </aside>
@@ -681,10 +800,18 @@ function formatVal(v) {
           </div>
           <div class="field switch-row">
             <label>6 寸打印排版</label>
-            <n-switch v-model:value="params.genPrintLayout" size="small" />
-          </div>
-          <div class="field">
-            <label>目标文件大小 KB</label>
+                <n-switch v-model:value="params.genPrintLayout" size="small" />
+              </div>
+              <div v-if="params.genPrintLayout" class="field">
+                <label>当前纸张：{{ currentPaperLabel }}</label>
+                <n-select
+                  v-model:value="params.paperSize"
+                  :options="paperSizes.map((p) => ({ label: `${p.title}（${p.desc}）`, value: p.value }))"
+                  size="small"
+                />
+              </div>
+              <div class="field">
+                <label>目标文件大小 KB</label>
             <n-input-number
               v-model:value="params.targetFileSize"
               :min="50"
@@ -983,21 +1110,40 @@ function formatVal(v) {
   backdrop-filter: blur(16px);
   box-shadow: none;
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
   animation: panel-in 420ms ease both;
 }
 
 .rail.left {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  animation-delay: 40ms;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  animation: none;
   border-right: 1px solid var(--line);
 }
 
 .rail.right {
+  overflow-x: hidden;
+  overflow-y: auto;
   animation-delay: 100ms;
   border-left: 1px solid var(--line);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
+}
+
+.rail.right::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rail.right::-webkit-scrollbar-thumb {
+  background: rgba(196, 91, 122, 0.28);
+  border-radius: 6px;
+}
+
+.rail.right::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 @keyframes panel-in {
@@ -1005,11 +1151,61 @@ function formatVal(v) {
   to { opacity: 1; transform: none; }
 }
 
+.rail.left .rail-section {
+  padding: 12px 14px;
+}
+
+.rail.left .pin-top {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.rail.left .pin-mid {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.rail.left .specs-section {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rail.left .section-label,
+.rail.left .spec-search,
+.rail.left .spec-cats {
+  flex: 0 0 auto;
+}
+
+.rail.left .spec-scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  margin-top: 4px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
+}
+
+.rail.left .spec-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rail.left .spec-scroll::-webkit-scrollbar-thumb {
+  background: rgba(196, 91, 122, 0.28);
+  border-radius: 6px;
+}
+
+.rail.left .spec-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .rail-section.grow {
   flex: 1;
   min-height: 0;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
 }
 
 .section-label,
@@ -1019,6 +1215,105 @@ function formatVal(v) {
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--ink-faint);
+}
+
+.spec-search {
+  margin-bottom: 10px;
+}
+
+.spec-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.spec-cat {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.spec-cat:hover {
+  border-color: rgba(196, 91, 122, 0.35);
+  color: var(--rose-deep);
+}
+
+.spec-cat.active {
+  background: var(--rose-soft);
+  border-color: rgba(196, 91, 122, 0.4);
+  color: var(--rose-deep);
+}
+
+.custom-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.custom-apply {
+  margin-top: 4px;
+  width: 100%;
+  justify-content: center;
+}
+
+.spec-empty {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.paper-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.paper-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.paper-card:hover {
+  background: var(--rose-soft);
+  border-color: rgba(196, 91, 122, 0.18);
+}
+
+.paper-card.active {
+  border-color: rgba(196, 91, 122, 0.4);
+  background: var(--rose-soft);
+}
+
+.paper-card strong {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.paper-card span {
+  font-size: 10px;
+  color: var(--ink-faint);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .template-grid {
