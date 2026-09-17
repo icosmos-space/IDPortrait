@@ -244,6 +244,56 @@ function makeCanvasDataUrl(w, h, bg, text, mode = 'solid') {
   return canvas.toDataURL('image/png')
 }
 
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    if (!src) {
+      reject(new Error('empty image'))
+      return
+    }
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('image load failed'))
+    img.src = src
+  })
+}
+
+async function makeMattingDataUrl(source) {
+  try {
+    const img = await loadImageElement(source)
+    const w = img.naturalWidth || img.width
+    const h = img.naturalHeight || img.height
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.max(1, w)
+    canvas.height = Math.max(1, h)
+    const ctx = canvas.getContext('2d')
+    ctx.drawImage(img, 0, 0)
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const cx = canvas.width * 0.5
+    const cy = canvas.height * 0.42
+    const rx = canvas.width * 0.36
+    const ry = canvas.height * 0.48
+    const feather = 0.12
+    for (let y = 0; y < canvas.height; y++) {
+      for (let x = 0; x < canvas.width; x++) {
+        const nx = (x - cx) / rx
+        const ny = (y - cy) / ry
+        const d = Math.sqrt(nx * nx + ny * ny)
+        let a = 0
+        if (d <= 1 - feather) a = 1
+        else if (d < 1) {
+          const t = (d - (1 - feather)) / feather
+          a = 1 - t * t * (3 - 2 * t)
+        }
+        data.data[(y * canvas.width + x) * 4 + 3] = Math.round(a * 255)
+      }
+    }
+    ctx.putImageData(data, 0, 0)
+    return canvas.toDataURL('image/png')
+  } catch {
+    return source || makeCanvasDataUrl(360, 480, '#f1f5f9', '抠图')
+  }
+}
+
 function makeLayoutDataUrl(bg, label, mode = 'solid') {
   const canvas = document.createElement('canvas')
   canvas.width = 600
@@ -384,8 +434,12 @@ export const IDPhotoService = {
     const paperLabel = paperMap[params.paperSize] || '6寸'
     const idphoto = source || makeCanvasDataUrl(295, 413, bg, '证件照', mode)
     const single = source || makeCanvasDataUrl(360, 480, bg, '单张照片', mode)
+    const mattingImg = source
+      ? await makeMattingDataUrl(source)
+      : makeCanvasDataUrl(360, 480, '#f1f5f9', '抠图')
     return {
       originImg: source || makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
+      mattingImg,
       resultImg: idphoto,
       results: {
         single,
