@@ -248,31 +248,19 @@
 
 .rail.right > .n-collapse,
 .rail.right > .n-collapse.right-collapse {
+  --right-header-h: 36px;
+  --right-other-headers: calc(var(--right-header-h) * 5);
   flex: 1 1 auto;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  display: block;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
-}
-
-.rail.right > .n-collapse::-webkit-scrollbar {
-  width: 6px;
-}
-
-.rail.right > .n-collapse::-webkit-scrollbar-thumb {
-  background: rgba(196, 91, 122, 0.28);
-  border-radius: 6px;
-}
-
-.rail.right > .n-collapse::-webkit-scrollbar-track {
-  background: transparent;
+  overflow: hidden; /* 右侧整体不出现滚动条 */
+  display: flex;
+  flex-direction: column;
 }
 
 .rail.right .n-collapse-item {
-  display: block;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
   margin: 0 !important;
   border-radius: 0 !important;
   border-left: none !important;
@@ -287,6 +275,8 @@
 }
 
 .rail.right .n-collapse-item .n-collapse-item__header {
+  flex: 0 0 auto;
+  min-height: var(--right-header-h);
   padding: 8px 4px !important;
 }
 
@@ -297,24 +287,60 @@
   overflow: hidden !important;
 }
 
-/* 展开按内容自然高度，下面项紧跟；超出右侧栏底部时由外层出现滚动条 */
+/*
+  展开项不拉长占位：高度跟内容走，下面项紧跟。
+  仅当内容会把下面项顶出可视区时，展开内容区内出现滚动条。
+*/
+.rail.right .n-collapse-item--active {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(100% - var(--right-other-headers));
+  overflow: hidden;
+}
+
 .rail.right .n-collapse-item--active > .n-collapse-item__content-wrapper {
-  max-height: none !important;
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
   height: auto !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   opacity: 1 !important;
+  display: flex !important;
+  flex-direction: column;
 }
 
 .rail.right .n-collapse-item--active .n-collapse-item__content {
+  flex: 0 1 auto;
+  min-height: 0;
   height: auto !important;
-  overflow: visible !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   padding-top: 0 !important;
 }
 
 .rail.right .n-collapse-item--active .n-collapse-item__content-inner {
+  flex: 0 1 auto;
+  min-height: 0;
   padding: 0 4px 8px !important;
-  max-height: none !important;
-  overflow: visible !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(196, 91, 122, 0.28) transparent;
+}
+
+.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar-thumb {
+  background: rgba(196, 91, 122, 0.28);
+  border-radius: 6px;
+}
+
+.rail.right .n-collapse-item--active .n-collapse-item__content-inner::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .rail.right .n-collapse-item .field {
