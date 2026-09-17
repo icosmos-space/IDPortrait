@@ -58,6 +58,8 @@ export namespace core {
 	    enableTargetFileSize: boolean;
 	    targetFileSize: number;
 	    maskFeather: number;
+	    faceDetectModel: string;
+	    mattingModel: string;
 	    sourceImg: string;
 	
 	    static createFrom(source: any = {}) {
@@ -91,6 +93,8 @@ export namespace core {
 	        this.enableTargetFileSize = source["enableTargetFileSize"];
 	        this.targetFileSize = source["targetFileSize"];
 	        this.maskFeather = source["maskFeather"];
+	        this.faceDetectModel = source["faceDetectModel"];
+	        this.mattingModel = source["mattingModel"];
 	        this.sourceImg = source["sourceImg"];
 	    }
 	}
@@ -206,6 +210,59 @@ export namespace core {
 		    return a;
 		}
 	}
+	export class ModelOption {
+	    value: string;
+	    title: string;
+	    desc: string;
+	    keywords?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelOption(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.value = source["value"];
+	        this.title = source["title"];
+	        this.desc = source["desc"];
+	        this.keywords = source["keywords"];
+	    }
+	}
+	export class ModelCatalog {
+	    list: ModelOption[];
+	    default: string;
+	    current: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ModelCatalog(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.list = this.convertValues(source["list"], ModelOption);
+	        this.default = source["default"];
+	        this.current = source["current"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
 	export class PaperSpec {
 	    value: string;
 	    title: string;

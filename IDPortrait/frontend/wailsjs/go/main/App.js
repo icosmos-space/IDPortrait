@@ -10,6 +10,14 @@ export function Generate(arg1) {
   return window['go']['main']['App']['Generate'](arg1);
 }
 
+export function GetFaceDetectModels(arg1) {
+  return window['go']['main']['App']['GetFaceDetectModels'](arg1);
+}
+
+export function GetMattingModels(arg1) {
+  return window['go']['main']['App']['GetMattingModels'](arg1);
+}
+
 export function GetPaperSpecs(arg1) {
   return window['go']['main']['App']['GetPaperSpecs'](arg1);
 }
@@ -36,6 +44,14 @@ export function OpenImageDialog() {
 
 export function SelectFolder() {
   return window['go']['main']['App']['SelectFolder']();
+}
+
+export function SetCurrentFaceDetectModel(arg1) {
+  return window['go']['main']['App']['SetCurrentFaceDetectModel'](arg1);
+}
+
+export function SetCurrentMattingModel(arg1) {
+  return window['go']['main']['App']['SetCurrentMattingModel'](arg1);
 }
 
 export function SetCurrentPaperSpec(arg1) {

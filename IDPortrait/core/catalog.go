@@ -103,3 +103,45 @@ func BuiltinPaperSpecs() []PaperSpec {
 		{Value: "a4", Title: "A4", Desc: "210×297 mm", WidthMM: 210, HeightMM: 297},
 	}
 }
+
+// ModelOption describes a selectable AI model.
+type ModelOption struct {
+	Value    string `json:"value"`
+	Title    string `json:"title"`
+	Desc     string `json:"desc"`
+	Keywords string `json:"keywords,omitempty"`
+}
+
+// ModelCatalog is returned for face-detect / matting model lists.
+type ModelCatalog struct {
+	List    []ModelOption `json:"list"`
+	Default string        `json:"default"`
+	Current string        `json:"current"`
+}
+
+const (
+	DefaultFaceDetectModelID = "retinaface"
+	DefaultMattingModelID    = "modnet"
+)
+
+// BuiltinFaceDetectModels returns available face detection models.
+func BuiltinFaceDetectModels() []ModelOption {
+	return []ModelOption{
+		{Value: "retinaface", Title: "RetinaFace", Desc: "高精度人脸框与五点", Keywords: "retinaface 人脸检测"},
+		{Value: "scrfd", Title: "SCRFD", Desc: "轻量快速，适合实时", Keywords: "scrfd 轻量"},
+		{Value: "yolov8_face", Title: "YOLOv8-Face", Desc: "通用目标检测风格", Keywords: "yolo yolov8"},
+		{Value: "mediapipe", Title: "MediaPipe", Desc: "移动端友好", Keywords: "mediapipe google"},
+		{Value: "insightface", Title: "InsightFace", Desc: "检测+关键点一体化", Keywords: "insightface 关键点"},
+	}
+}
+
+// BuiltinMattingModels returns available matting / cutout models.
+func BuiltinMattingModels() []ModelOption {
+	return []ModelOption{
+		{Value: "modnet", Title: "MODNet", Desc: "人像抠图，边缘自然", Keywords: "modnet 抠图"},
+		{Value: "u2net", Title: "U²-Net", Desc: "通用显著物体分割", Keywords: "u2net rembg"},
+		{Value: "birefnet", Title: "BiRefNet", Desc: "高细节抠图", Keywords: "birefnet 精细"},
+		{Value: "isnet", Title: "ISNet", Desc: "人像分割增强", Keywords: "isnet"},
+		{Value: "rmbg", Title: "RMBG", Desc: "背景移除专用", Keywords: "rmbg 去背景"},
+	}
+}

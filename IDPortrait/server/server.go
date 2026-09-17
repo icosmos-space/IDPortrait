@@ -74,8 +74,12 @@ func (s *Server) Start(port int) (string, error) {
 	api.POST("/export", s.handleExport)
 	api.GET("/photo-specs", s.handlePhotoSpecs)
 	api.GET("/paper-specs", s.handlePaperSpecs)
+	api.GET("/face-detect-models", s.handleFaceDetectModels)
+	api.GET("/matting-models", s.handleMattingModels)
 	api.POST("/photo-specs/current", s.handleSetPhotoSpec)
 	api.POST("/paper-specs/current", s.handleSetPaperSpec)
+	api.POST("/face-detect-models/current", s.handleSetFaceDetectModel)
+	api.POST("/matting-models/current", s.handleSetMattingModel)
 
 	if s.assets != nil {
 		fileServer := http.FileServer(http.FS(s.assets))
@@ -236,6 +240,46 @@ func (s *Server) handleSetPaperSpec(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	if err := s.svc.SetCurrentPaperSpec(req.Value); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})
+}
+
+func (s *Server) handleFaceDetectModels(c echo.Context) error {
+	q := core.SpecQuery{Keyword: c.QueryParam("keyword")}
+	res, err := s.svc.GetFaceDetectModels(q)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) handleMattingModels(c echo.Context) error {
+	q := core.SpecQuery{Keyword: c.QueryParam("keyword")}
+	res, err := s.svc.GetMattingModels(q)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+func (s *Server) handleSetFaceDetectModel(c echo.Context) error {
+	var req currentSpecReq
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := s.svc.SetCurrentFaceDetectModel(req.Value); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})
+}
+
+func (s *Server) handleSetMattingModel(c echo.Context) error {
+	var req currentSpecReq
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	if err := s.svc.SetCurrentMattingModel(req.Value); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 	return c.JSON(http.StatusOK, map[string]any{"ok": true, "value": req.Value})

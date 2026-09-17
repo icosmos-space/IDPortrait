@@ -81,6 +81,22 @@ func (a *App) SetCurrentPaperSpec(value string) error {
 	return a.svc.SetCurrentPaperSpec(value)
 }
 
+func (a *App) GetFaceDetectModels(query core.SpecQuery) (*core.ModelCatalog, error) {
+	return a.svc.GetFaceDetectModels(query)
+}
+
+func (a *App) GetMattingModels(query core.SpecQuery) (*core.ModelCatalog, error) {
+	return a.svc.GetMattingModels(query)
+}
+
+func (a *App) SetCurrentFaceDetectModel(value string) error {
+	return a.svc.SetCurrentFaceDetectModel(value)
+}
+
+func (a *App) SetCurrentMattingModel(value string) error {
+	return a.svc.SetCurrentMattingModel(value)
+}
+
 func (a *App) OpenImageDialog() (string, error) {
 	if a.ctx == nil {
 		return "", fmt.Errorf("app not ready")

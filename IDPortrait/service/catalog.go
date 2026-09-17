@@ -11,8 +11,10 @@ import (
 
 // userConfig holds persisted preferences (current selections).
 type userConfig struct {
-	CurrentPhotoSpec string `json:"currentPhotoSpec"`
-	CurrentPaperSpec string `json:"currentPaperSpec"`
+	CurrentPhotoSpec       string `json:"currentPhotoSpec"`
+	CurrentPaperSpec       string `json:"currentPaperSpec"`
+	CurrentFaceDetectModel string `json:"currentFaceDetectModel"`
+	CurrentMattingModel    string `json:"currentMattingModel"`
 }
 
 func (s *Service) configPath() string {
@@ -198,4 +200,91 @@ func PreferSpec(current, fallback string) string {
 		return current
 	}
 	return fallback
+}
+
+func faceDetectModelExists(id string) bool {
+	for _, item := range core.BuiltinFaceDetectModels() {
+		if item.Value == id {
+			return true
+		}
+	}
+	return false
+}
+
+func mattingModelExists(id string) bool {
+	for _, item := range core.BuiltinMattingModels() {
+		if item.Value == id {
+			return true
+		}
+	}
+	return false
+}
+
+func filterModels(all []core.ModelOption, keyword string) []core.ModelOption {
+	keyword = strings.TrimSpace(keyword)
+	list := make([]core.ModelOption, 0, len(all))
+	for _, item := range all {
+		if keyword != "" {
+			hay := item.Title + " " + item.Desc + " " + item.Keywords + " " + item.Value
+			if !containsFold(hay, keyword) {
+				continue
+			}
+		}
+		list = append(list, item)
+	}
+	return list
+}
+
+// GetFaceDetectModels returns face detection model options.
+func (s *Service) GetFaceDetectModels(query core.SpecQuery) (*core.ModelCatalog, error) {
+	cfg := s.loadConfig()
+	current := cfg.CurrentFaceDetectModel
+	if current != "" && !faceDetectModelExists(current) {
+		current = ""
+	}
+	return &core.ModelCatalog{
+		List:    filterModels(core.BuiltinFaceDetectModels(), query.Keyword),
+		Default: core.DefaultFaceDetectModelID,
+		Current: current,
+	}, nil
+}
+
+// GetMattingModels returns matting / cutout model options.
+func (s *Service) GetMattingModels(query core.SpecQuery) (*core.ModelCatalog, error) {
+	cfg := s.loadConfig()
+	current := cfg.CurrentMattingModel
+	if current != "" && !mattingModelExists(current) {
+		current = ""
+	}
+	return &core.ModelCatalog{
+		List:    filterModels(core.BuiltinMattingModels(), query.Keyword),
+		Default: core.DefaultMattingModelID,
+		Current: current,
+	}, nil
+}
+
+// SetCurrentFaceDetectModel persists the selected face detection model.
+func (s *Service) SetCurrentFaceDetectModel(value string) error {
+	value = strings.TrimSpace(value)
+	if value != "" && !faceDetectModelExists(value) {
+		return nil
+	}
+	s.cfgMu.Lock()
+	s.cfg.CurrentFaceDetectModel = value
+	s.cfgLoaded = true
+	s.cfgMu.Unlock()
+	return s.saveConfig()
+}
+
+// SetCurrentMattingModel persists the selected matting model.
+func (s *Service) SetCurrentMattingModel(value string) error {
+	value = strings.TrimSpace(value)
+	if value != "" && !mattingModelExists(value) {
+		return nil
+	}
+	s.cfgMu.Lock()
+	s.cfg.CurrentMattingModel = value
+	s.cfgLoaded = true
+	s.cfgMu.Unlock()
+	return s.saveConfig()
 }

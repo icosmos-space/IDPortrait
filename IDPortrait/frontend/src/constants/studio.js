@@ -60,6 +60,8 @@ export function createDefaultParams() {
     enableTargetFileSize: false,
     targetFileSize: 200,
     maskFeather: 0.3,
+    faceDetectModel: '',
+    mattingModel: '',
   }
 }
 

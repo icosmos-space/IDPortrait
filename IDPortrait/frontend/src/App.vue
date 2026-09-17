@@ -27,6 +27,8 @@ const {
   bgModes,
   clothOptions,
   paperSizes,
+  faceDetectModels,
+  mattingModels,
   currentPaperLabel,
   specCategories,
   bgPresets,
@@ -126,6 +128,8 @@ const {
       :params="params"
       :cloth-options="clothOptions"
       :paper-sizes="paperSizes"
+      :face-detect-models="faceDetectModels"
+      :matting-models="mattingModels"
       :current-paper-label="currentPaperLabel"
     />
 

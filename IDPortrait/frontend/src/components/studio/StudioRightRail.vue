@@ -6,6 +6,8 @@ defineProps({
   expandedPanels: { type: Array, required: true },
   clothOptions: { type: Array, default: () => CLOTH_OPTIONS },
   paperSizes: { type: Array, default: () => [] },
+  faceDetectModels: { type: Array, default: () => [] },
+  mattingModels: { type: Array, default: () => [] },
   currentPaperLabel: { type: String, default: '纸张' },
 })
 
@@ -139,6 +141,24 @@ const emit = defineEmits(['update:expandedPanels'])
       </n-collapse-item>
 
       <n-collapse-item title="高级选项" name="adv">
+        <div class="field">
+          <label>人脸检测模型</label>
+          <n-select
+            v-model:value="params.faceDetectModel"
+            :options="faceDetectModels.map((m) => ({ label: `${m.title}（${m.desc}）`, value: m.value }))"
+            size="small"
+            placeholder="选择人脸检测模型"
+          />
+        </div>
+        <div class="field">
+          <label>抠图模型</label>
+          <n-select
+            v-model:value="params.mattingModel"
+            :options="mattingModels.map((m) => ({ label: `${m.title}（${m.desc}）`, value: m.value }))"
+            size="small"
+            placeholder="选择抠图模型"
+          />
+        </div>
         <div class="field switch-row">
           <label>溯源盲水印</label>
           <n-switch v-model:value="params.addWatermark" size="small" />

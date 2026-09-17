@@ -50,10 +50,14 @@ export function useStudio() {
   const bgPresets = BG_PRESETS
 
   const paperSizes = ref([])
+  const faceDetectModels = ref([])
+  const mattingModels = ref([])
   const specCategories = ref([])
   const allSpecs = ref([])
   const photoSpecMeta = reactive({ default: '', current: '' })
   const paperSpecMeta = reactive({ default: '', current: '' })
+  const faceDetectMeta = reactive({ default: '', current: '' })
+  const mattingMeta = reactive({ default: '', current: '' })
 
   const currentPaperLabel = computed(() => {
     return paperSizes.value.find((p) => p.value === params.paperSize)?.title || '纸张'
@@ -342,11 +346,15 @@ export function useStudio() {
     return catalog
   }
 
-  function applyPreferredSpecs(photoCatalog, paperCatalog) {
+  function applyPreferredSpecs(photoCatalog, paperCatalog, faceCatalog, mattingCatalog) {
     const photoID = IDPhotoService.preferValue(photoCatalog?.current, photoCatalog?.default)
     const paperID = IDPhotoService.preferValue(paperCatalog?.current, paperCatalog?.default)
+    const faceID = IDPhotoService.preferValue(faceCatalog?.current, faceCatalog?.default)
+    const mattingID = IDPhotoService.preferValue(mattingCatalog?.current, mattingCatalog?.default)
     if (photoID) params.template = photoID
     if (paperID) params.paperSize = paperID
+    if (faceID) params.faceDetectModel = faceID
+    if (mattingID) params.mattingModel = mattingID
     if (photoID && photoID !== 'custom') {
       const hit = (photoCatalog?.list || []).find((s) => s.value === photoID)
       if (hit?.categories?.length) {
@@ -356,9 +364,11 @@ export function useStudio() {
   }
 
   async function loadCatalogs() {
-    const [photoFull, paperFull] = await Promise.all([
+    const [photoFull, paperFull, faceFull, mattingFull] = await Promise.all([
       IDPhotoService.GetPhotoSpecs({ keyword: '', category: '' }),
       IDPhotoService.GetPaperSpecs({ keyword: '' }),
+      IDPhotoService.GetFaceDetectModels({ keyword: '' }),
+      IDPhotoService.GetMattingModels({ keyword: '' }),
     ])
     if (photoFull?.categories?.length) {
       specCategories.value = photoFull.categories
@@ -367,8 +377,14 @@ export function useStudio() {
     photoSpecMeta.current = photoFull?.current || ''
     paperSpecMeta.default = paperFull?.default || ''
     paperSpecMeta.current = paperFull?.current || ''
+    faceDetectMeta.default = faceFull?.default || ''
+    faceDetectMeta.current = faceFull?.current || ''
+    mattingMeta.default = mattingFull?.default || ''
+    mattingMeta.current = mattingFull?.current || ''
     paperSizes.value = paperFull?.list || []
-    applyPreferredSpecs(photoFull, paperFull)
+    faceDetectModels.value = faceFull?.list || []
+    mattingModels.value = mattingFull?.list || []
+    applyPreferredSpecs(photoFull, paperFull, faceFull, mattingFull)
     await refreshPhotoSpecs()
   }
 
@@ -423,6 +439,24 @@ export function useStudio() {
       if (!value) return
       IDPhotoService.SetCurrentPaperSpec(value).catch(() => {})
       paperSpecMeta.current = value
+    },
+  )
+
+  watch(
+    () => params.faceDetectModel,
+    (value) => {
+      if (!value) return
+      IDPhotoService.SetCurrentFaceDetectModel(value).catch(() => {})
+      faceDetectMeta.current = value
+    },
+  )
+
+  watch(
+    () => params.mattingModel,
+    (value) => {
+      if (!value) return
+      IDPhotoService.SetCurrentMattingModel(value).catch(() => {})
+      mattingMeta.current = value
     },
   )
 
@@ -520,8 +554,12 @@ export function useStudio() {
     Object.assign(params, createDefaultParams())
     const photoID = IDPhotoService.preferValue(photoSpecMeta.current, photoSpecMeta.default)
     const paperID = IDPhotoService.preferValue(paperSpecMeta.current, paperSpecMeta.default)
+    const faceID = IDPhotoService.preferValue(faceDetectMeta.current, faceDetectMeta.default)
+    const mattingID = IDPhotoService.preferValue(mattingMeta.current, mattingMeta.default)
     if (photoID) params.template = photoID
     if (paperID) params.paperSize = paperID
+    if (faceID) params.faceDetectModel = faceID
+    if (mattingID) params.mattingModel = mattingID
     activeSpecCategory.value = 'common'
     specKeyword.value = ''
     progressPercent.value = 0
@@ -698,6 +736,8 @@ export function useStudio() {
     bgModes,
     clothOptions,
     paperSizes,
+    faceDetectModels,
+    mattingModels,
     currentPaperLabel,
     specCategories,
     allSpecs,

@@ -6,6 +6,10 @@ export function Export(arg1:string,arg2:core.ExportOptions):Promise<core.ExportR
 
 export function Generate(arg1:core.GenerateParams):Promise<core.GenerateResult>;
 
+export function GetFaceDetectModels(arg1:core.SpecQuery):Promise<core.ModelCatalog>;
+
+export function GetMattingModels(arg1:core.SpecQuery):Promise<core.ModelCatalog>;
+
 export function GetPaperSpecs(arg1:core.SpecQuery):Promise<core.PaperSpecCatalog>;
 
 export function GetPhotoSpecs(arg1:core.SpecQuery):Promise<core.PhotoSpecCatalog>;
@@ -19,6 +23,10 @@ export function LoadImage(arg1:string):Promise<core.LoadImageResult>;
 export function OpenImageDialog():Promise<string>;
 
 export function SelectFolder():Promise<string>;
+
+export function SetCurrentFaceDetectModel(arg1:string):Promise<void>;
+
+export function SetCurrentMattingModel(arg1:string):Promise<void>;
 
 export function SetCurrentPaperSpec(arg1:string):Promise<void>;
 

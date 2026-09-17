@@ -129,13 +129,38 @@ const FALLBACK_PHOTO_SPECS = {
   ],
 }
 
-const FALLBACK_PAPER_SPECS = {
+function normalizeModelCatalog(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const list = raw.list || raw.List || []
+  return {
+    list: list.map((item) => ({
+      value: item.value || item.Value,
+      title: item.title || item.Title,
+      desc: item.desc || item.Desc,
+      keywords: item.keywords || item.Keywords || '',
+    })),
+    default: raw.default || raw.Default || '',
+    current: raw.current || raw.Current || '',
+  }
+}
+
+const FALLBACK_FACE_DETECT_MODELS = {
   list: [
-    { value: '5inch', title: '5寸', desc: '89×127 mm' },
-    { value: '6inch', title: '6寸', desc: '102×152 mm' },
-    { value: 'a4', title: 'A4', desc: '210×297 mm' },
+    { value: 'retinaface', title: 'RetinaFace', desc: '高精度人脸框与五点' },
+    { value: 'scrfd', title: 'SCRFD', desc: '轻量快速，适合实时' },
+    { value: 'mediapipe', title: 'MediaPipe', desc: '移动端友好' },
   ],
-  default: '6inch',
+  default: 'retinaface',
+  current: '',
+}
+
+const FALLBACK_MATTING_MODELS = {
+  list: [
+    { value: 'modnet', title: 'MODNet', desc: '人像抠图，边缘自然' },
+    { value: 'u2net', title: 'U²-Net', desc: '通用显著物体分割' },
+    { value: 'birefnet', title: 'BiRefNet', desc: '高细节抠图' },
+  ],
+  default: 'modnet',
   current: '',
 }
 
@@ -449,6 +474,62 @@ export const IDPhotoService = {
     if (res !== undefined) return res
     if (await detectHttpMode()) {
       return apiJSON('/paper-specs/current', { value })
+    }
+    return null
+  },
+
+  async GetFaceDetectModels(query = {}) {
+    const q = { keyword: query.keyword || '' }
+    const res = await tryGo('GetFaceDetectModels', q)
+    if (res !== undefined) return normalizeModelCatalog(res) || FALLBACK_FACE_DETECT_MODELS
+    if (await detectHttpMode()) {
+      const qs = new URLSearchParams()
+      if (q.keyword) qs.set('keyword', q.keyword)
+      const suffix = qs.toString() ? `?${qs}` : ''
+      const raw = await apiJSON(`/face-detect-models${suffix}`, null, 'GET')
+      return normalizeModelCatalog(raw) || FALLBACK_FACE_DETECT_MODELS
+    }
+    const keyword = String(q.keyword || '').trim().toLowerCase()
+    let list = FALLBACK_FACE_DETECT_MODELS.list
+    if (keyword) {
+      list = list.filter((item) => `${item.title} ${item.desc}`.toLowerCase().includes(keyword))
+    }
+    return { ...FALLBACK_FACE_DETECT_MODELS, list }
+  },
+
+  async GetMattingModels(query = {}) {
+    const q = { keyword: query.keyword || '' }
+    const res = await tryGo('GetMattingModels', q)
+    if (res !== undefined) return normalizeModelCatalog(res) || FALLBACK_MATTING_MODELS
+    if (await detectHttpMode()) {
+      const qs = new URLSearchParams()
+      if (q.keyword) qs.set('keyword', q.keyword)
+      const suffix = qs.toString() ? `?${qs}` : ''
+      const raw = await apiJSON(`/matting-models${suffix}`, null, 'GET')
+      return normalizeModelCatalog(raw) || FALLBACK_MATTING_MODELS
+    }
+    const keyword = String(q.keyword || '').trim().toLowerCase()
+    let list = FALLBACK_MATTING_MODELS.list
+    if (keyword) {
+      list = list.filter((item) => `${item.title} ${item.desc}`.toLowerCase().includes(keyword))
+    }
+    return { ...FALLBACK_MATTING_MODELS, list }
+  },
+
+  async SetCurrentFaceDetectModel(value) {
+    const res = await tryGo('SetCurrentFaceDetectModel', value)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/face-detect-models/current', { value })
+    }
+    return null
+  },
+
+  async SetCurrentMattingModel(value) {
+    const res = await tryGo('SetCurrentMattingModel', value)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/matting-models/current', { value })
     }
     return null
   },

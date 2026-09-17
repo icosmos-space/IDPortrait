@@ -14,8 +14,12 @@ type IDPhotoService interface {
 	Health() map[string]any
 	GetPhotoSpecs(query core.SpecQuery) (*core.PhotoSpecCatalog, error)
 	GetPaperSpecs(query core.SpecQuery) (*core.PaperSpecCatalog, error)
+	GetFaceDetectModels(query core.SpecQuery) (*core.ModelCatalog, error)
+	GetMattingModels(query core.SpecQuery) (*core.ModelCatalog, error)
 	SetCurrentPhotoSpec(value string) error
 	SetCurrentPaperSpec(value string) error
+	SetCurrentFaceDetectModel(value string) error
+	SetCurrentMattingModel(value string) error
 }
 
 // Service is the default implementation backed by core.Engine.
