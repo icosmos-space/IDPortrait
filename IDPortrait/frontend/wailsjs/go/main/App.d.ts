@@ -20,9 +20,13 @@ export function GetWatermarkConfig():Promise<core.WatermarkConfigResult>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function ListPrinters():Promise<Array<core.PrinterInfo>>;
+
 export function LoadImage(arg1:string):Promise<core.LoadImageResult>;
 
 export function OpenImageDialog():Promise<string>;
+
+export function PrintLayout(arg1:core.PrintOptions):Promise<core.PrintResult>;
 
 export function SelectFolder():Promise<string>;
 

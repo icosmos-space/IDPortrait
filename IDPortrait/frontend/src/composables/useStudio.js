@@ -95,6 +95,7 @@ export function useStudio() {
   })
 
   const showExportModal = ref(false)
+  const showPrintModal = ref(false)
   const showSettingModal = ref(false)
   const showAboutModal = ref(false)
   const showUpgradeModal = ref(false)
@@ -108,6 +109,13 @@ export function useStudio() {
     social: true,
     idphoto: true,
   })
+  const printCopies = ref(1)
+  const printPrinterName = ref('')
+  const printPaperSize = ref('6inch')
+  const printLandscape = ref(false)
+  const printBusy = ref(false)
+  const printers = ref([])
+  const nativePrint = ref(false)
   const setting = reactive({
     modelDir: '',
     cacheDir: '',
@@ -712,6 +720,134 @@ export function useStudio() {
     showExportModal.value = true
   }
 
+  function openPrintModal() {
+    if (!resultSet.layout) {
+      message.warning('请先生成排版照后再打印')
+      return
+    }
+    printCopies.value = 1
+    printPaperSize.value = params.paperSize || printPaperSize.value || '6inch'
+    printLandscape.value = false
+    showPrintModal.value = true
+    refreshPrinters().catch(() => {})
+  }
+
+  async function refreshPrinters() {
+    try {
+      const ret = await IDPhotoService.ListPrinters()
+      printers.value = Array.isArray(ret?.printers) ? ret.printers : []
+      nativePrint.value = !!ret?.native
+      if (!printPrinterName.value) {
+        const def = printers.value.find((p) => p.isDefault) || printers.value[0]
+        printPrinterName.value = def?.name || ''
+      } else if (printers.value.length && !printers.value.some((p) => p.name === printPrinterName.value)) {
+        const def = printers.value.find((p) => p.isDefault) || printers.value[0]
+        printPrinterName.value = def?.name || ''
+      }
+    } catch {
+      printers.value = []
+      nativePrint.value = false
+    }
+  }
+
+  function printLayoutImage(dataUrl, copies = 1) {
+    const count = Math.max(1, Math.min(20, Number(copies) || 1))
+    const iframe = document.createElement('iframe')
+    iframe.setAttribute('aria-hidden', 'true')
+    iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none'
+    document.body.appendChild(iframe)
+
+    const pages = Array.from({ length: count }, (_, i) =>
+      `<div class="page"><img id="img-${i}" src="${dataUrl}" alt="排版照" /></div>`,
+    ).join('')
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document
+    if (!doc) {
+      iframe.remove()
+      throw new Error('无法打开打印预览')
+    }
+
+    doc.open()
+    doc.write(`<!doctype html><html><head><meta charset="utf-8" /><title>打印排版照</title>
+<style>
+  @page { margin: 8mm; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  .page { page-break-after: always; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .page:last-child { page-break-after: auto; }
+  img { max-width: 100%; max-height: 100vh; object-fit: contain; }
+</style></head><body>${pages}</body></html>`)
+    doc.close()
+
+    return new Promise((resolve, reject) => {
+      const imgs = Array.from(doc.images || [])
+      const done = () => {
+        try {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+          resolve()
+        } catch (err) {
+          reject(err)
+        } finally {
+          setTimeout(() => iframe.remove(), 800)
+        }
+      }
+      if (!imgs.length) {
+        done()
+        return
+      }
+      let left = imgs.length
+      const tick = () => {
+        left -= 1
+        if (left <= 0) done()
+      }
+      imgs.forEach((img) => {
+        if (img.complete) tick()
+        else {
+          img.onload = tick
+          img.onerror = tick
+        }
+      })
+    })
+  }
+
+  async function doPrint() {
+    if (!resultSet.layout) {
+      message.warning('暂无排版照可打印')
+      return
+    }
+    printBusy.value = true
+    try {
+      const canNative = nativePrint.value
+      if (canNative) {
+        if (!printPrinterName.value) {
+          await refreshPrinters()
+        }
+        if (!printPrinterName.value) {
+          throw new Error('未找到可用打印机')
+        }
+        await IDPhotoService.PrintLayout({
+          imageDataUrl: resultSet.layout,
+          printerName: printPrinterName.value,
+          paperSize: printPaperSize.value || params.paperSize || '6inch',
+          copies: printCopies.value,
+          landscape: printLandscape.value,
+        })
+        showPrintModal.value = false
+        statusText.value = '打印任务已提交'
+        message.success(`已发送到打印机：${printPrinterName.value}`)
+      } else {
+        await printLayoutImage(resultSet.layout, printCopies.value)
+        showPrintModal.value = false
+        statusText.value = '已调起打印'
+        message.success('已打开打印对话框')
+      }
+    } catch (e) {
+      message.error(e?.message || '打印失败')
+    } finally {
+      printBusy.value = false
+    }
+  }
+
   async function selectExportDir() {
     const dir = await IDPhotoService.SelectFolder()
     if (dir) exportDir.value = dir
@@ -838,6 +974,7 @@ export function useStudio() {
     showCustomSpec,
     report,
     showExportModal,
+    showPrintModal,
     showSettingModal,
     showAboutModal,
     showUpgradeModal,
@@ -846,6 +983,13 @@ export function useStudio() {
     checkingUpgrade,
     exportDir,
     exportOpt,
+    printCopies,
+    printPrinterName,
+    printPaperSize,
+    printLandscape,
+    printBusy,
+    printers,
+    nativePrint,
     setting,
     remoteStatus,
     remoteBusy,
@@ -868,6 +1012,9 @@ export function useStudio() {
     switchResultTab,
     switchOriginTab,
     openExportModal,
+    openPrintModal,
+    refreshPrinters,
+    doPrint,
     selectExportDir,
     doExport,
     openSettingModal,

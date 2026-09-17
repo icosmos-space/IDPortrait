@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"IDPortrait/core"
+	"IDPortrait/printer"
 	"IDPortrait/server"
 	"IDPortrait/service"
 
@@ -129,6 +130,14 @@ func (a *App) SelectFolder() (string, error) {
 	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
 		Title: "选择导出目录",
 	})
+}
+
+func (a *App) ListPrinters() ([]core.PrinterInfo, error) {
+	return printer.ListPrinters()
+}
+
+func (a *App) PrintLayout(opt core.PrintOptions) (*core.PrintResult, error) {
+	return printer.PrintLayout(opt)
 }
 
 // --- Remote HTTP service ---

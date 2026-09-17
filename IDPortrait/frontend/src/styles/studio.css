@@ -1028,6 +1028,24 @@
   gap: 6px;
 }
 
+.print-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-inline {
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 24px;
+}
+
+.print-inline > div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

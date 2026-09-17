@@ -54,6 +54,12 @@ const {
   exportDir,
   exportOpt,
   printCopies,
+  printPrinterName,
+  printPaperSize,
+  printLandscape,
+  printBusy,
+  printers,
+  nativePrint,
   setting,
   remoteStatus,
   remoteBusy,
@@ -74,6 +80,7 @@ const {
   switchOriginTab,
   openExportModal,
   openPrintModal,
+  refreshPrinters,
   doPrint,
   selectExportDir,
   doExport,
@@ -165,9 +172,16 @@ const {
     <PrintModal
       v-model:show="showPrintModal"
       v-model:copies="printCopies"
+      v-model:printer-name="printPrinterName"
+      v-model:paper-size="printPaperSize"
+      v-model:landscape="printLandscape"
       :layout-img="resultSet.layout"
-      :paper-label="currentPaperLabel"
+      :printers="printers"
+      :paper-sizes="paperSizes"
+      :printing="printBusy"
+      :native-print="nativePrint"
       @print="doPrint"
+      @refresh-printers="refreshPrinters"
     />
 
     <SettingModal

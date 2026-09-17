@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/wailsapp/wails/v2 v2.15.0
+	golang.org/x/sys v0.48.0
 )
 
 require (
@@ -33,7 +34,6 @@ require (
 	github.com/wailsapp/mimetype v1.4.1 // indirect
 	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/net v0.56.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.8.0 // indirect
 )

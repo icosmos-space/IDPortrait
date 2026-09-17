@@ -473,6 +473,20 @@ export const IDPhotoService = {
     return { ok: true, dir, opt }
   },
 
+  async ListPrinters() {
+    const res = await tryGo('ListPrinters')
+    if (res !== undefined) {
+      return { native: true, printers: Array.isArray(res) ? res : [] }
+    }
+    return { native: false, printers: [] }
+  },
+
+  async PrintLayout(opt) {
+    const res = await tryGo('PrintLayout', opt)
+    if (res !== undefined) return res
+    throw new Error('本机打印仅支持桌面客户端')
+  },
+
   async GetHistory() {
     const res = await tryGo('GetHistory')
     if (res !== undefined) return res

@@ -89,3 +89,25 @@ type ExportResult struct {
 	OK  bool   `json:"ok"`
 	Dir string `json:"dir"`
 }
+
+// PrinterInfo describes an installed system printer.
+type PrinterInfo struct {
+	Name      string `json:"name"`
+	IsDefault bool   `json:"isDefault"`
+}
+
+// PrintOptions controls native layout printing.
+type PrintOptions struct {
+	ImageDataURL string `json:"imageDataUrl"`
+	PrinterName  string `json:"printerName"`
+	PaperSize    string `json:"paperSize"`
+	Copies       int    `json:"copies"`
+	Landscape    bool   `json:"landscape"`
+}
+
+// PrintResult summarizes a native print job.
+type PrintResult struct {
+	OK      bool   `json:"ok"`
+	Printer string `json:"printer"`
+	Copies  int    `json:"copies"`
+}

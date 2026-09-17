@@ -415,6 +415,56 @@ export namespace core {
 		    return a;
 		}
 	}
+	export class PrintOptions {
+	    imageDataUrl: string;
+	    printerName: string;
+	    paperSize: string;
+	    copies: number;
+	    landscape: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PrintOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.imageDataUrl = source["imageDataUrl"];
+	        this.printerName = source["printerName"];
+	        this.paperSize = source["paperSize"];
+	        this.copies = source["copies"];
+	        this.landscape = source["landscape"];
+	    }
+	}
+	export class PrintResult {
+	    ok: boolean;
+	    printer: string;
+	    copies: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PrintResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.printer = source["printer"];
+	        this.copies = source["copies"];
+	    }
+	}
+	export class PrinterInfo {
+	    name: string;
+	    isDefault: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new PrinterInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.isDefault = source["isDefault"];
+	    }
+	}
 	
 	
 	

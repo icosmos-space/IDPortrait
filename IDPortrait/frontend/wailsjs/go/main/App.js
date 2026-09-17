@@ -38,12 +38,20 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function ListPrinters() {
+  return window['go']['main']['App']['ListPrinters']();
+}
+
 export function LoadImage(arg1) {
   return window['go']['main']['App']['LoadImage'](arg1);
 }
 
 export function OpenImageDialog() {
   return window['go']['main']['App']['OpenImageDialog']();
+}
+
+export function PrintLayout(arg1) {
+  return window['go']['main']['App']['PrintLayout'](arg1);
 }
 
 export function SelectFolder() {
