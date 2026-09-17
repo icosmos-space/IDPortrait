@@ -45,6 +45,42 @@ function makeCanvasDataUrl(w, h, bg, text) {
   return canvas.toDataURL('image/png')
 }
 
+function makeLayoutDataUrl(bg, label) {
+  const canvas = document.createElement('canvas')
+  canvas.width = 600
+  canvas.height = 400
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#f8fafc'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  const tileW = 90
+  const tileH = 126
+  const gap = 12
+  const cols = 5
+  const rows = 2
+  const startX = 40
+  const startY = 50
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const x = startX + c * (tileW + gap)
+      const y = startY + r * (tileH + gap)
+      ctx.fillStyle = bg
+      ctx.fillRect(x, y, tileW, tileH)
+      ctx.fillStyle = '#475569'
+      ctx.beginPath()
+      ctx.ellipse(x + tileW / 2, y + tileH * 0.38, 18, 22, 0, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.ellipse(x + tileW / 2, y + tileH * 0.82, 28, 26, 0, Math.PI, 0)
+      ctx.fill()
+    }
+  }
+  ctx.fillStyle = '#0f172a'
+  ctx.font = '14px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(label, canvas.width / 2, 28)
+  return canvas.toDataURL('image/png')
+}
+
 async function tryGo(method, ...args) {
   try {
     const mod = await import('../../wailsjs/go/main/App.js')
@@ -99,9 +135,16 @@ export const IDPhotoService = {
       window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: step }))
       await sleep(280)
     }
+    const bg = params.bgColor || '#FFFFFF'
     const result = {
       originImg: makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
-      resultImg: makeCanvasDataUrl(295, 413, params.bgColor || '#FFFFFF', '证件照'),
+      resultImg: makeCanvasDataUrl(295, 413, bg, '证件照'),
+      results: {
+        single: makeCanvasDataUrl(360, 480, bg, '单张照片'),
+        layout: makeLayoutDataUrl(bg, '6寸排版照'),
+        social: makeCanvasDataUrl(400, 400, bg, '社交照'),
+        idphoto: makeCanvasDataUrl(295, 413, bg, '证件照'),
+      },
       faceBox: [90, 80, 270, 300],
       landmarks: [140, 160, 220, 160, 180, 210, 150, 250, 210, 250],
       report: {

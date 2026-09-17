@@ -14,6 +14,25 @@ const statusText = ref('就绪')
 const processTagType = ref('success')
 const hasOrigin = ref(false)
 const hasResult = ref(false)
+const activeResultTab = ref('idphoto')
+
+const resultTabs = [
+  { key: 'single', label: '单张照片', hint: '精修单图' },
+  { key: 'layout', label: '排版照', hint: '6寸打印排版' },
+  { key: 'social', label: '社交照', hint: '方形社交尺寸' },
+  { key: 'idphoto', label: '证件照', hint: '标准证件规格' },
+]
+
+const resultSet = reactive({
+  single: '',
+  layout: '',
+  social: '',
+  idphoto: '',
+})
+
+const currentResultHint = computed(() => {
+  return resultTabs.find((t) => t.key === activeResultTab.value)?.hint || '成品预览'
+})
 
 const params = reactive({
   template: 'one_white',
@@ -69,7 +88,12 @@ const report = reactive({
 const showExportModal = ref(false)
 const showSettingModal = ref(false)
 const exportDir = ref('')
-const exportOpt = reactive({ photo: true, png: true, layout: true })
+const exportOpt = reactive({
+  single: true,
+  layout: true,
+  social: true,
+  idphoto: true,
+})
 const setting = reactive({
   modelDir: '',
   cacheDir: '',
@@ -113,14 +137,36 @@ function onProgress(data) {
 }
 
 function onDone(res) {
-  const payload = res?.resultImg !== undefined ? res : res?.[0] || res
+  const payload = res?.resultImg !== undefined || res?.results ? res : res?.[0] || res
   processing.value = false
   progressPercent.value = 100
   statusText.value = '生成完成'
   processTagType.value = 'success'
   if (payload?.report) Object.assign(report, payload.report)
   drawOriginCanvas(payload.originImg, payload.faceBox || [], payload.landmarks || [])
-  drawResultCanvas(payload.resultImg)
+
+  const next = payload?.results || {}
+  resultSet.single = next.single || payload.resultImg || ''
+  resultSet.layout = next.layout || ''
+  resultSet.social = next.social || ''
+  resultSet.idphoto = next.idphoto || payload.resultImg || ''
+  hasResult.value = Boolean(resultSet.single || resultSet.layout || resultSet.social || resultSet.idphoto)
+  showActiveResult()
+}
+
+function showActiveResult() {
+  const img = resultSet[activeResultTab.value]
+  if (img) {
+    drawResultCanvas(img)
+    return
+  }
+  const tab = resultTabs.find((t) => t.key === activeResultTab.value)
+  paintPlaceholder(resultCanvas.value, tab?.label || '成品', '暂无该类型成品')
+}
+
+function switchResultTab(key) {
+  activeResultTab.value = key
+  if (hasResult.value) showActiveResult()
 }
 
 function onError(err) {
@@ -198,6 +244,10 @@ function initEmptyCanvases() {
   paintPlaceholder(resultCanvas.value, '成品预览', '生成后在此显示')
   hasOrigin.value = false
   hasResult.value = false
+  resultSet.single = ''
+  resultSet.layout = ''
+  resultSet.social = ''
+  resultSet.idphoto = ''
 }
 
 function drawOriginCanvas(imgData, faceBox, landmarks) {
@@ -240,8 +290,12 @@ function drawResultCanvas(imgData) {
   const ctx = canvas.getContext('2d')
   const img = new Image()
   img.onload = () => {
-    canvas.width = 360
-    canvas.height = Math.round((360 * img.height) / img.width) || 480
+    const maxW = activeResultTab.value === 'layout' ? 420 : 360
+    const maxH = 480
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+    canvas.width = Math.max(1, Math.round(img.width * scale))
+    canvas.height = Math.max(1, Math.round(img.height * scale))
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     hasResult.value = true
   }
@@ -433,11 +487,25 @@ function formatVal(v) {
           <article class="frame result">
             <header class="frame-head">
               <span>成品</span>
-              <em>证件照预览</em>
+              <em>{{ currentResultHint }}</em>
             </header>
+            <div class="result-tabs" role="tablist">
+              <button
+                v-for="tab in resultTabs"
+                :key="tab.key"
+                type="button"
+                role="tab"
+                class="result-tab"
+                :class="{ active: activeResultTab === tab.key }"
+                :aria-selected="activeResultTab === tab.key"
+                @click="switchResultTab(tab.key)"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
             <div class="frame-body">
               <canvas ref="resultCanvas" />
-              <p v-if="!hasResult" class="frame-hint">生成完成后展示精修成品</p>
+              <p v-if="!hasResult" class="frame-hint">生成完成后可切换查看各类成品</p>
             </div>
           </article>
         </div>
@@ -645,9 +713,10 @@ function formatVal(v) {
       :mask-closable="false"
     >
       <div class="modal-stack">
-        <n-checkbox v-model:checked="exportOpt.photo">成品证件照</n-checkbox>
-        <n-checkbox v-model:checked="exportOpt.png">透明 PNG 人像</n-checkbox>
-        <n-checkbox v-model:checked="exportOpt.layout">6 寸打印排版图</n-checkbox>
+        <n-checkbox v-model:checked="exportOpt.single">单张照片</n-checkbox>
+        <n-checkbox v-model:checked="exportOpt.idphoto">证件照</n-checkbox>
+        <n-checkbox v-model:checked="exportOpt.layout">排版照</n-checkbox>
+        <n-checkbox v-model:checked="exportOpt.social">社交照</n-checkbox>
         <label class="modal-label">输出目录</label>
         <n-input v-model:value="exportDir" readonly placeholder="请选择导出目录" />
       </div>
@@ -1056,6 +1125,10 @@ function formatVal(v) {
   gap: 8px;
 }
 
+.frame.result {
+  width: min(440px, 48%);
+}
+
 .frame-head {
   display: flex;
   align-items: baseline;
@@ -1091,6 +1164,39 @@ function formatVal(v) {
 
 .frame.result .frame-body {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 246, 249, 0.9));
+}
+
+.result-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 2px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--line);
+}
+
+.result-tab {
+  height: 30px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.result-tab:hover {
+  color: var(--rose-deep);
+  background: rgba(196, 91, 122, 0.08);
+}
+
+.result-tab.active {
+  color: #fff;
+  background: var(--rose);
 }
 
 .frame-body canvas {
