@@ -8,6 +8,8 @@ import (
 	"image/color"
 	"image/draw"
 	"image/jpeg"
+	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,13 +139,18 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 	if err != nil {
 		return nil, err
 	}
+	matting, err := encodePNGDataURL(composeMatting(src))
+	if err != nil {
+		return nil, err
+	}
 
 	w := src.Bounds().Dx()
 	h := src.Bounds().Dy()
 
 	return &GenerateResult{
-		OriginImg: originURL,
-		ResultImg: idphoto,
+		OriginImg:  originURL,
+		MattingImg: matting,
+		ResultImg:  idphoto,
 		Results: ResultBundle{
 			Single:  single,
 			Layout:  layout,
@@ -242,6 +249,57 @@ func encodeJPEGDataURL(img image.Image, quality int) (string, error) {
 		return "", err
 	}
 	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func encodePNGDataURL(img image.Image) (string, error) {
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		return "", err
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+// composeMatting builds a soft portrait cutout (RGBA) for preview until ONNX matting lands.
+func composeMatting(src image.Image) *image.RGBA {
+	sb := src.Bounds()
+	w, h := sb.Dx(), sb.Dy()
+	if w <= 0 || h <= 0 {
+		return image.NewRGBA(image.Rect(0, 0, 1, 1))
+	}
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	cx := float64(w) * 0.5
+	cy := float64(h) * 0.42
+	rx := float64(w) * 0.36
+	ry := float64(h) * 0.48
+	feather := 0.12
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			nx := (float64(x) - cx) / rx
+			ny := (float64(y) - cy) / ry
+			d := math.Sqrt(nx*nx + ny*ny)
+			var a float64
+			switch {
+			case d <= 1-feather:
+				a = 1
+			case d >= 1:
+				a = 0
+			default:
+				t := (d - (1 - feather)) / feather
+				a = 1 - t*t*(3-2*t)
+			}
+			if a <= 0.004 {
+				continue
+			}
+			r, g, b, _ := src.At(sb.Min.X+x, sb.Min.Y+y).RGBA()
+			dst.SetRGBA(x, y, color.RGBA{
+				R: uint8(r >> 8),
+				G: uint8(g >> 8),
+				B: uint8(b >> 8),
+				A: uint8(a * 255),
+			})
+		}
+	}
+	return dst
 }
 
 func downscale(src image.Image, maxSide int) image.Image {

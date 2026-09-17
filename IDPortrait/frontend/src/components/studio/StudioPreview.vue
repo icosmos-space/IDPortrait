@@ -1,20 +1,25 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { RESULT_TABS } from '../../constants/studio'
+import { RESULT_TABS, ORIGIN_TABS } from '../../constants/studio'
 
 const props = defineProps({
   originView: { type: Object, default: null },
+  mattingView: { type: String, default: null },
   resultView: { type: String, default: null },
   hasOrigin: { type: Boolean, default: false },
+  hasMatting: { type: Boolean, default: false },
   hasResult: { type: Boolean, default: false },
+  activeOriginTab: { type: String, default: 'original' },
+  originTabs: { type: Array, default: () => ORIGIN_TABS },
   activeResultTab: { type: String, default: 'idphoto' },
   resultTabs: { type: Array, default: () => RESULT_TABS },
+  currentOriginHint: { type: String, default: '人脸检测' },
   currentResultHint: { type: String, default: '成品预览' },
   diagnostics: { type: Array, default: () => [] },
   beautyStrength: { type: Number, default: 0 },
 })
 
-const emit = defineEmits(['drop', 'switch-result-tab'])
+const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab'])
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
@@ -41,9 +46,49 @@ function paintPlaceholder(canvas, title, subtitle) {
   ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 16)
 }
 
-function drawOrigin(view) {
+function paintCheckerboard(ctx, w, h, size = 12) {
+  const a = '#eceff3'
+  const b = '#f7f9fb'
+  for (let y = 0; y < h; y += size) {
+    for (let x = 0; x < w; x += size) {
+      ctx.fillStyle = ((x / size + y / size) % 2 === 0) ? a : b
+      ctx.fillRect(x, y, size, size)
+    }
+  }
+}
+
+function drawOriginSide() {
   const canvas = originCanvas.value
   if (!canvas) return
+
+  if (props.activeOriginTab === 'matting') {
+    if (!props.mattingView) {
+      paintPlaceholder(
+        canvas,
+        '等待抠图',
+        props.hasOrigin ? '生成后可查看抠图' : '请先打开照片并生成',
+      )
+      return
+    }
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    img.onload = () => {
+      const maxW = 360
+      const maxH = 480
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1)
+      canvas.width = Math.max(1, Math.round(img.width * scale))
+      canvas.height = Math.max(1, Math.round(img.height * scale))
+      paintCheckerboard(ctx, canvas.width, canvas.height)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    }
+    img.onerror = () => {
+      paintPlaceholder(canvas, '抠图加载失败', '请重新生成')
+    }
+    img.src = props.mattingView
+    return
+  }
+
+  const view = props.originView
   if (!view?.img) {
     paintPlaceholder(canvas, '等待原图', '打开或拖入照片')
     return
@@ -110,13 +155,13 @@ function drawResult(imgData) {
 }
 
 onMounted(() => {
-  drawOrigin(props.originView)
+  drawOriginSide()
   drawResult(props.resultView)
 })
 
 watch(
-  () => props.originView,
-  (view) => drawOrigin(view),
+  () => [props.originView, props.mattingView, props.activeOriginTab, props.hasOrigin, props.hasMatting],
+  () => drawOriginSide(),
   { deep: true },
 )
 
@@ -137,15 +182,35 @@ watch(
         <article class="frame">
           <header class="frame-head">
             <span>原图</span>
-            <em>人脸检测</em>
+            <em>{{ currentOriginHint }}</em>
           </header>
+          <div class="result-tabs" role="tablist">
+            <button
+              v-for="tab in originTabs"
+              :key="tab.key"
+              type="button"
+              role="tab"
+              class="result-tab"
+              :class="{ active: activeOriginTab === tab.key }"
+              :aria-selected="activeOriginTab === tab.key"
+              @click="emit('switch-origin-tab', tab.key)"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
           <div
             class="frame-body"
+            :class="{ matting: activeOriginTab === 'matting' }"
             @dragover.prevent
             @drop.prevent="emit('drop', $event)"
           >
             <canvas ref="originCanvas" />
-            <p v-if="!hasOrigin" class="frame-hint">拖放照片到这里，或点「打开图片」</p>
+            <p v-if="!hasOrigin && activeOriginTab === 'original'" class="frame-hint">
+              拖放照片到这里，或点「打开图片」
+            </p>
+            <p v-else-if="activeOriginTab === 'matting' && !hasMatting" class="frame-hint">
+              生成完成后可查看抠图结果
+            </p>
           </div>
         </article>
 

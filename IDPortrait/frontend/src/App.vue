@@ -18,11 +18,16 @@ const {
   statusText,
   hasOrigin,
   hasResult,
+  hasMatting,
   activeResultTab,
+  activeOriginTab,
   resultTabs,
+  originTabs,
   originView,
+  mattingView,
   resultView,
   currentResultHint,
+  currentOriginHint,
   params,
   bgModes,
   clothOptions,
@@ -62,6 +67,7 @@ const {
   applyCustomSpec,
   selectSpecCategory,
   switchResultTab,
+  switchOriginTab,
   openExportModal,
   selectExportDir,
   doExport,
@@ -111,15 +117,21 @@ const {
 
     <StudioPreview
       :origin-view="originView"
+      :matting-view="mattingView"
       :result-view="resultView"
       :has-origin="hasOrigin"
+      :has-matting="hasMatting"
       :has-result="hasResult"
+      :active-origin-tab="activeOriginTab"
+      :origin-tabs="originTabs"
       :active-result-tab="activeResultTab"
       :result-tabs="resultTabs"
+      :current-origin-hint="currentOriginHint"
       :current-result-hint="currentResultHint"
       :diagnostics="diagnostics"
       :beauty-strength="params.beautyStrength"
       @drop="handleDrop"
+      @switch-origin-tab="switchOriginTab"
       @switch-result-tab="switchResultTab"
     />
 

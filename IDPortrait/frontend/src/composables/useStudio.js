@@ -3,6 +3,7 @@ import { useMessage } from 'naive-ui'
 import { IDPhotoService } from '../services/idphoto'
 import {
   RESULT_TABS,
+  ORIGIN_TABS,
   BG_MODES,
   BG_PRESETS,
   CLOTH_OPTIONS,
@@ -24,11 +25,15 @@ export function useStudio() {
   const hasOrigin = ref(false)
   const hasResult = ref(false)
   const activeResultTab = ref('idphoto')
+  const activeOriginTab = ref('original')
 
   const resultTabs = RESULT_TABS
+  const originTabs = ORIGIN_TABS
 
   /** @type {import('vue').Ref<{ img: string, faceBox: number[], landmarks: number[] } | null>} */
   const originView = ref(null)
+  /** @type {import('vue').Ref<string | null>} */
+  const mattingView = ref(null)
   /** @type {import('vue').Ref<string | null>} */
   const resultView = ref(null)
 
@@ -42,6 +47,12 @@ export function useStudio() {
   const currentResultHint = computed(() => {
     return resultTabs.find((t) => t.key === activeResultTab.value)?.hint || '成品预览'
   })
+
+  const currentOriginHint = computed(() => {
+    return originTabs.find((t) => t.key === activeOriginTab.value)?.hint || '原图预览'
+  })
+
+  const hasMatting = computed(() => Boolean(mattingView.value))
 
   const params = reactive(createDefaultParams())
 
@@ -225,9 +236,11 @@ export function useStudio() {
 
   function clearViews() {
     originView.value = null
+    mattingView.value = null
     resultView.value = null
     hasOrigin.value = false
     hasResult.value = false
+    activeOriginTab.value = 'original'
     resultSet.single = ''
     resultSet.layout = ''
     resultSet.social = ''
@@ -257,6 +270,8 @@ export function useStudio() {
       setOriginView(payload.originImg, payload.faceBox, payload.landmarks)
     }
 
+    mattingView.value = payload.mattingImg || ''
+
     const next = payload.results || {}
     resultSet.single = next.single || payload.resultImg || ''
     resultSet.layout = next.layout || ''
@@ -283,6 +298,7 @@ export function useStudio() {
     const report = payload.report || payload.Report || {}
     return {
       originImg: payload.originImg || payload.OriginImg || '',
+      mattingImg: payload.mattingImg || payload.MattingImg || '',
       resultImg: payload.resultImg || payload.ResultImg || '',
       results: {
         single: results.single || results.Single || '',
@@ -304,6 +320,10 @@ export function useStudio() {
   function switchResultTab(key) {
     activeResultTab.value = key
     if (hasResult.value) showActiveResult()
+  }
+
+  function switchOriginTab(key) {
+    activeOriginTab.value = key
   }
 
   function onError(err) {
@@ -553,6 +573,8 @@ export function useStudio() {
       isAiImage: false,
     })
     setOriginView(dataUrl, faceBox, landmarks)
+    mattingView.value = null
+    activeOriginTab.value = 'original'
     statusText.value = '已拍照'
     processTagType.value = 'success'
     closeCameraModal()
@@ -573,6 +595,8 @@ export function useStudio() {
       }
       Object.assign(report, ret.report)
       setOriginView(ret.imgBase64, ret.faceBox, ret.landmarks)
+      mattingView.value = null
+      activeOriginTab.value = 'original'
       statusText.value = '已加载图片'
       processTagType.value = 'success'
     } catch (e) {
@@ -787,12 +811,17 @@ export function useStudio() {
     processTagType,
     hasOrigin,
     hasResult,
+    hasMatting,
     activeResultTab,
+    activeOriginTab,
     resultTabs,
+    originTabs,
     originView,
+    mattingView,
     resultView,
     resultSet,
     currentResultHint,
+    currentOriginHint,
     params,
     bgModes,
     clothOptions,
@@ -837,6 +866,7 @@ export function useStudio() {
     applyCustomSpec,
     selectSpecCategory,
     switchResultTab,
+    switchOriginTab,
     openExportModal,
     selectExportDir,
     doExport,

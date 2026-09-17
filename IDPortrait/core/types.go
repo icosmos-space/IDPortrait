@@ -68,6 +68,7 @@ type LoadImageResult struct {
 // GenerateResult is returned after finishing an ID photo job.
 type GenerateResult struct {
 	OriginImg  string       `json:"originImg"`
+	MattingImg string       `json:"mattingImg"`
 	ResultImg  string       `json:"resultImg"`
 	Results    ResultBundle `json:"results"`
 	FaceBox    []float64    `json:"faceBox"`

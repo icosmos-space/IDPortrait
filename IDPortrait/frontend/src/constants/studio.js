@@ -7,6 +7,11 @@ export const RESULT_TABS = [
   { key: 'idphoto', label: '证件照', hint: '标准证件规格' },
 ]
 
+export const ORIGIN_TABS = [
+  { key: 'original', label: '原始', hint: '人脸检测' },
+  { key: 'matting', label: '抠图', hint: '透明背景' },
+]
+
 export const BG_MODES = [
   { value: 'solid', label: '纯色' },
   { value: 'vertical', label: '上下渐变' },

@@ -152,6 +152,7 @@ export namespace core {
 	}
 	export class GenerateResult {
 	    originImg: string;
+	    mattingImg: string;
 	    resultImg: string;
 	    results: ResultBundle;
 	    faceBox: number[];
@@ -165,6 +166,7 @@ export namespace core {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.originImg = source["originImg"];
+	        this.mattingImg = source["mattingImg"];
 	        this.resultImg = source["resultImg"];
 	        this.results = this.convertValues(source["results"], ResultBundle);
 	        this.faceBox = source["faceBox"];
