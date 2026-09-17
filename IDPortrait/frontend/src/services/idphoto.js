@@ -37,13 +37,30 @@ function makePlaceholderThumb(label, bg = '#e8eef5') {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-function makeCanvasDataUrl(w, h, bg, text) {
+function fillBackground(ctx, w, h, bg, mode = 'solid') {
+  const end = '#FFFFFF'
+  if (mode === 'vertical') {
+    const g = ctx.createLinearGradient(0, 0, 0, h)
+    g.addColorStop(0, bg)
+    g.addColorStop(1, end)
+    ctx.fillStyle = g
+  } else if (mode === 'radial') {
+    const g = ctx.createRadialGradient(w / 2, h * 0.42, 8, w / 2, h * 0.42, Math.max(w, h) * 0.75)
+    g.addColorStop(0, bg)
+    g.addColorStop(1, end)
+    ctx.fillStyle = g
+  } else {
+    ctx.fillStyle = bg
+  }
+  ctx.fillRect(0, 0, w, h)
+}
+
+function makeCanvasDataUrl(w, h, bg, text, mode = 'solid') {
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = bg
-  ctx.fillRect(0, 0, w, h)
+  fillBackground(ctx, w, h, bg, mode)
   ctx.fillStyle = '#334155'
   ctx.beginPath()
   ctx.ellipse(w / 2, h * 0.42, w * 0.22, h * 0.18, 0, 0, Math.PI * 2)
@@ -59,7 +76,7 @@ function makeCanvasDataUrl(w, h, bg, text) {
   return canvas.toDataURL('image/png')
 }
 
-function makeLayoutDataUrl(bg, label) {
+function makeLayoutDataUrl(bg, label, mode = 'solid') {
   const canvas = document.createElement('canvas')
   canvas.width = 600
   canvas.height = 400
@@ -77,15 +94,19 @@ function makeLayoutDataUrl(bg, label) {
     for (let c = 0; c < cols; c++) {
       const x = startX + c * (tileW + gap)
       const y = startY + r * (tileH + gap)
-      ctx.fillStyle = bg
-      ctx.fillRect(x, y, tileW, tileH)
-      ctx.fillStyle = '#475569'
-      ctx.beginPath()
-      ctx.ellipse(x + tileW / 2, y + tileH * 0.38, 18, 22, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.beginPath()
-      ctx.ellipse(x + tileW / 2, y + tileH * 0.82, 28, 26, 0, Math.PI, 0)
-      ctx.fill()
+      const tmp = document.createElement('canvas')
+      tmp.width = tileW
+      tmp.height = tileH
+      const tctx = tmp.getContext('2d')
+      fillBackground(tctx, tileW, tileH, bg, mode)
+      tctx.fillStyle = '#475569'
+      tctx.beginPath()
+      tctx.ellipse(tileW / 2, tileH * 0.38, 18, 22, 0, 0, Math.PI * 2)
+      tctx.fill()
+      tctx.beginPath()
+      tctx.ellipse(tileW / 2, tileH * 0.82, 28, 26, 0, Math.PI, 0)
+      tctx.fill()
+      ctx.drawImage(tmp, x, y)
     }
   }
   ctx.fillStyle = '#0f172a'
@@ -150,6 +171,7 @@ export const IDPhotoService = {
       await sleep(280)
     }
     const bg = params.bgColor || '#FFFFFF'
+    const mode = params.bgMode || 'solid'
     const paperMap = {
       '5inch': '5寸',
       '6inch': '6寸',
@@ -161,12 +183,12 @@ export const IDPhotoService = {
     const paperLabel = paperMap[params.paperSize] || '6寸'
     const result = {
       originImg: makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
-      resultImg: makeCanvasDataUrl(295, 413, bg, '证件照'),
+      resultImg: makeCanvasDataUrl(295, 413, bg, '证件照', mode),
       results: {
-        single: makeCanvasDataUrl(360, 480, bg, '单张照片'),
-        layout: makeLayoutDataUrl(bg, `${paperLabel}排版照`),
-        social: makeCanvasDataUrl(400, 400, bg, '社交照'),
-        idphoto: makeCanvasDataUrl(295, 413, bg, '证件照'),
+        single: makeCanvasDataUrl(360, 480, bg, '单张照片', mode),
+        layout: makeLayoutDataUrl(bg, `${paperLabel}排版照`, mode),
+        social: makeCanvasDataUrl(400, 400, bg, '社交照', mode),
+        idphoto: makeCanvasDataUrl(295, 413, bg, '证件照', mode),
       },
       faceBox: [90, 80, 270, 300],
       landmarks: [140, 160, 220, 160, 180, 210, 150, 250, 210, 250],

@@ -23,7 +23,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:             "最美证件照",
+		Title:             "ID Portrait - 最美证件照",
 		Width:             1280,
 		Height:            800,
 		MinWidth:          1100,

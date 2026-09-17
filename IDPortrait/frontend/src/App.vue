@@ -36,6 +36,7 @@ const currentResultHint = computed(() => {
 
 const params = reactive({
   template: 'one_inch',
+  bgMode: 'solid',
   bgColor: '#FFFFFF',
   bgPreset: '#FFFFFF',
   customWidth: 25,
@@ -59,6 +60,20 @@ const params = reactive({
   targetFileSize: 200,
   maskFeather: 0.3,
 })
+
+const bgModes = [
+  { value: 'solid', label: '纯色' },
+  { value: 'vertical', label: '上下渐变' },
+  { value: 'radial', label: '中心渐变' },
+]
+
+function modePreviewStyle(mode) {
+  const a = params.bgColor || '#FFFFFF'
+  const b = '#FFFFFF'
+  if (mode === 'vertical') return { background: `linear-gradient(180deg, ${a} 0%, ${b} 100%)` }
+  if (mode === 'radial') return { background: `radial-gradient(circle at 50% 42%, ${a} 0%, ${b} 100%)` }
+  return { background: a }
+}
 
 const clothOptions = [
   { label: '白衬衫', value: 'white_shirt' },
@@ -391,6 +406,7 @@ function handleDrop(e) {
 
 function resetAll() {
   params.template = 'one_inch'
+  params.bgMode = 'solid'
   params.bgColor = '#FFFFFF'
   params.bgPreset = '#FFFFFF'
   params.customWidth = 25
@@ -536,26 +552,8 @@ function formatVal(v) {
 
     <aside class="rail left">
       <section class="rail-section pin-top">
-        <div class="section-label">打印纸规格</div>
-        <div class="paper-grid">
-          <button
-            v-for="p in paperSizes"
-            :key="p.value"
-            type="button"
-            class="paper-card"
-            :class="{ active: params.paperSize === p.value }"
-            @click="params.paperSize = p.value"
-          >
-            <strong>{{ p.title }}</strong>
-            <span>{{ p.desc }}</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="rail-section pin-mid">
         <div class="section-label">背景颜色</div>
-        <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" />
-        <div class="swatches" style="margin-top: 10px">
+        <div class="swatches">
           <button
             v-for="c in bgPresets"
             :key="c.value"
@@ -566,6 +564,20 @@ function formatVal(v) {
             @click="params.bgPreset = c.value"
           >
             {{ c.label }}
+          </button>
+        </div>
+        <n-color-picker v-model:value="params.bgColor" :modes="['hex']" size="small" style="margin-top: 10px" />
+        <div class="bg-modes" style="margin-top: 10px">
+          <button
+            v-for="m in bgModes"
+            :key="m.value"
+            type="button"
+            class="bg-mode"
+            :class="{ active: params.bgMode === m.value }"
+            @click="params.bgMode = m.value"
+          >
+            <span class="bg-mode-preview" :style="modePreviewStyle(m.value)" />
+            {{ m.label }}
           </button>
         </div>
       </section>
@@ -1241,11 +1253,6 @@ function formatVal(v) {
   border-bottom: 1px solid var(--line);
 }
 
-.rail.left .pin-mid {
-  flex: 0 0 auto;
-  border-bottom: 1px solid var(--line);
-}
-
 .rail.left .pin-footer {
   flex: 0 0 auto;
   display: flex;
@@ -1360,51 +1367,6 @@ function formatVal(v) {
   font-size: 12px;
   color: var(--ink-faint);
   text-align: center;
-}
-
-.paper-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.paper-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.7);
-  text-align: left;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.paper-card:hover {
-  background: var(--rose-soft);
-  border-color: rgba(196, 91, 122, 0.18);
-}
-
-.paper-card.active {
-  border-color: rgba(196, 91, 122, 0.4);
-  background: var(--rose-soft);
-}
-
-.paper-card strong {
-  font-size: 12px;
-  color: var(--ink);
-}
-
-.paper-card span {
-  font-size: 10px;
-  color: var(--ink-faint);
-  line-height: 1.2;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .template-grid {
@@ -1733,6 +1695,47 @@ function formatVal(v) {
 .swatches {
   display: flex;
   gap: 8px;
+}
+
+.bg-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.bg-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.bg-mode:hover {
+  border-color: rgba(196, 91, 122, 0.3);
+  color: var(--rose-deep);
+}
+
+.bg-mode.active {
+  border-color: rgba(196, 91, 122, 0.45);
+  background: var(--rose-soft);
+  color: var(--rose-deep);
+}
+
+.bg-mode-preview {
+  width: 100%;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(42, 36, 48, 0.08);
 }
 
 .swatch {
