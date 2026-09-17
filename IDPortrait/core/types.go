@@ -34,6 +34,8 @@ type GenerateParams struct {
 	PaperSize      string  `json:"paperSize"`
 	TargetFileSize int     `json:"targetFileSize"`
 	MaskFeather    float64 `json:"maskFeather"`
+	// SourceImg is the current origin photo as a data URL.
+	SourceImg string `json:"sourceImg"`
 }
 
 // ResultBundle holds multi-type output images (data URLs or base64).

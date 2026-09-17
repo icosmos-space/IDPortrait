@@ -57,6 +57,7 @@ export namespace core {
 	    paperSize: string;
 	    targetFileSize: number;
 	    maskFeather: number;
+	    sourceImg: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new GenerateParams(source);
@@ -88,6 +89,7 @@ export namespace core {
 	        this.paperSize = source["paperSize"];
 	        this.targetFileSize = source["targetFileSize"];
 	        this.maskFeather = source["maskFeather"];
+	        this.sourceImg = source["sourceImg"];
 	    }
 	}
 	export class Report {

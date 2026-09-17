@@ -222,17 +222,9 @@ export const IDPhotoService = {
     const res = await tryGo('Generate', params)
     if (res !== undefined) return res
     if (await detectHttpMode()) {
-      const steps = [
-        { percent: 20, msg: '远程处理中...' },
-        { percent: 55, msg: '合成输出中...' },
-        { percent: 85, msg: '即将完成...' },
-      ]
-      for (const step of steps) {
-        window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: step }))
-        await sleep(180)
-      }
+      window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: { percent: 25, msg: '远程处理中...' } }))
       const result = await apiJSON('/generate', params)
-      window.dispatchEvent(new CustomEvent('IDPhoto.OnDone', { detail: result }))
+      window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: { percent: 90, msg: '整理成品...' } }))
       return result
     }
     const steps = [
@@ -244,10 +236,11 @@ export const IDPhotoService = {
     ]
     for (const step of steps) {
       window.dispatchEvent(new CustomEvent('IDPhoto.OnProgress', { detail: step }))
-      await sleep(280)
+      await sleep(180)
     }
     const bg = params.bgColor || '#FFFFFF'
     const mode = params.bgMode || 'solid'
+    const source = params.sourceImg || ''
     const paperMap = {
       '5inch': '5寸',
       '6inch': '6寸',
@@ -257,14 +250,16 @@ export const IDPhotoService = {
       a4: 'A4',
     }
     const paperLabel = paperMap[params.paperSize] || '6寸'
-    const result = {
-      originImg: makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
-      resultImg: makeCanvasDataUrl(295, 413, bg, '证件照', mode),
+    const idphoto = source || makeCanvasDataUrl(295, 413, bg, '证件照', mode)
+    const single = source || makeCanvasDataUrl(360, 480, bg, '单张照片', mode)
+    return {
+      originImg: source || makeCanvasDataUrl(360, 480, '#f1f5f9', '原图'),
+      resultImg: idphoto,
       results: {
-        single: makeCanvasDataUrl(360, 480, bg, '单张照片', mode),
+        single,
         layout: makeLayoutDataUrl(bg, `${paperLabel}排版照`, mode),
-        social: makeCanvasDataUrl(400, 400, bg, '社交照', mode),
-        idphoto: makeCanvasDataUrl(295, 413, bg, '证件照', mode),
+        social: source || makeCanvasDataUrl(400, 400, bg, '社交照', mode),
+        idphoto,
       },
       faceBox: [90, 80, 270, 300],
       landmarks: [140, 160, 220, 160, 180, 210, 150, 250, 210, 250],
@@ -275,8 +270,6 @@ export const IDPhotoService = {
         isAiImage: false,
       },
     }
-    window.dispatchEvent(new CustomEvent('IDPhoto.OnDone', { detail: result }))
-    return result
   },
 
   async SelectFolder() {

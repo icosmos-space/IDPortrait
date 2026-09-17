@@ -243,21 +243,64 @@ export function useStudio() {
   }
 
   function onDone(res) {
-    const payload = res?.resultImg !== undefined || res?.results ? res : res?.[0] || res
+    const payload = normalizeGenerateResult(res)
     processing.value = false
     progressPercent.value = 100
     statusText.value = '生成完成'
     processTagType.value = 'success'
-    if (payload?.report) Object.assign(report, payload.report)
-    setOriginView(payload.originImg, payload.faceBox || [], payload.landmarks || [])
+    if (!payload) {
+      message.error('生成结果为空')
+      return
+    }
+    if (payload.report) Object.assign(report, payload.report)
 
-    const next = payload?.results || {}
+    // 保留当前真实原图；仅在没有原图时用返回值回填
+    if (!originView.value?.img && payload.originImg) {
+      setOriginView(payload.originImg, payload.faceBox, payload.landmarks)
+    }
+
+    const next = payload.results || {}
     resultSet.single = next.single || payload.resultImg || ''
     resultSet.layout = next.layout || ''
     resultSet.social = next.social || ''
-    resultSet.idphoto = next.idphoto || payload.resultImg || ''
+    resultSet.idphoto = next.idphoto || next.IDPhoto || payload.resultImg || ''
     hasResult.value = Boolean(resultSet.single || resultSet.layout || resultSet.social || resultSet.idphoto)
+    if (!hasResult.value) {
+      message.warning('未生成成品图')
+      processTagType.value = 'warning'
+      statusText.value = '生成完成但无成品'
+      return
+    }
     showActiveResult()
+    message.success('生成完成')
+  }
+
+  function normalizeGenerateResult(res) {
+    if (!res || typeof res !== 'object') return null
+    const payload = res.resultImg !== undefined || res.ResultImg !== undefined || res.results || res.Results
+      ? res
+      : res[0] || res
+    if (!payload || typeof payload !== 'object') return null
+    const results = payload.results || payload.Results || {}
+    const report = payload.report || payload.Report || {}
+    return {
+      originImg: payload.originImg || payload.OriginImg || '',
+      resultImg: payload.resultImg || payload.ResultImg || '',
+      results: {
+        single: results.single || results.Single || '',
+        layout: results.layout || results.Layout || '',
+        social: results.social || results.Social || '',
+        idphoto: results.idphoto || results.IDPhoto || '',
+      },
+      faceBox: payload.faceBox || payload.FaceBox || [],
+      landmarks: payload.landmarks || payload.Landmarks || [],
+      report: {
+        faceOk: report.faceOk ?? report.FaceOK ?? false,
+        faceScore: report.faceScore ?? report.FaceScore ?? 0,
+        isRephoto: report.isRephoto ?? report.IsRephoto ?? false,
+        isAiImage: report.isAiImage ?? report.IsAiImage ?? false,
+      },
+    }
   }
 
   function switchResultTab(key) {
@@ -416,14 +459,30 @@ export function useStudio() {
   }
 
   async function runGenerate() {
+    if (!originView.value?.img) {
+      message.warning('请先打开或拍摄照片')
+      return
+    }
     processing.value = true
-    progressPercent.value = 0
+    progressPercent.value = 8
     statusText.value = '开始处理...'
     processTagType.value = 'warning'
+    const progressTimer = setInterval(() => {
+      if (progressPercent.value < 85) {
+        progressPercent.value += 7
+      }
+    }, 280)
     try {
-      await IDPhotoService.Generate({ ...params })
+      const raw = await IDPhotoService.Generate({
+        ...params,
+        sourceImg: originView.value.img,
+      })
+      // Wails / HTTP / mock 统一在这里收尾，避免桌面端一直停在「处理中」
+      onDone(raw)
     } catch (err) {
       onError({ msg: err?.message || '生成失败' })
+    } finally {
+      clearInterval(progressTimer)
     }
   }
 

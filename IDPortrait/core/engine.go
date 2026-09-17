@@ -6,19 +6,23 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	"image/jpeg"
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	_ "image/gif"
+	_ "image/png"
 )
 
 // Engine hosts ID-photo processing algorithms.
-// Current implementation loads real source images and returns placeholder
-// generation outputs so HTTP / Wails paths share the same service contract.
-type Engine struct{}
+type Engine struct {
+	mu          sync.Mutex
+	lastDataURL string
+	lastImg     image.Image
+}
 
 func NewEngine() *Engine {
 	return &Engine{}
@@ -30,31 +34,47 @@ func (e *Engine) LoadImage(path string) (*LoadImageResult, error) {
 		return nil, fmt.Errorf("empty image path")
 	}
 
-	var dataURL string
-	var bounds image.Rectangle
+	var (
+		dataURL string
+		img     image.Image
+		err     error
+	)
 
 	switch {
 	case strings.HasPrefix(path, "data:image/"):
-		dataURL = path
-		img, err := decodeDataURL(path)
+		img, err = decodeDataURL(path)
 		if err != nil {
 			return nil, err
 		}
-		bounds = img.Bounds()
+		// Re-encode as reasonably sized JPEG for later generate / IPC.
+		dataURL, err = encodeJPEGDataURL(downscale(img, 1600), 90)
+		if err != nil {
+			return nil, err
+		}
+		img, _ = decodeDataURL(dataURL)
 	default:
-		img, format, err := loadImageFile(path)
+		raw, format, openErr := loadImageFile(path)
+		if openErr != nil {
+			return nil, openErr
+		}
+		img = downscale(raw, 1600)
+		if strings.EqualFold(format, "png") || strings.EqualFold(format, "gif") {
+			dataURL, err = encodeJPEGDataURL(img, 90)
+		} else {
+			dataURL, err = encodeJPEGDataURL(img, 90)
+		}
 		if err != nil {
 			return nil, err
 		}
-		dataURL, err = encodeDataURL(img, format)
-		if err != nil {
-			return nil, err
-		}
-		bounds = img.Bounds()
 	}
 
-	w := bounds.Dx()
-	h := bounds.Dy()
+	e.mu.Lock()
+	e.lastDataURL = dataURL
+	e.lastImg = img
+	e.mu.Unlock()
+
+	w := img.Bounds().Dx()
+	h := img.Bounds().Dy()
 	if w <= 0 {
 		w = 360
 	}
@@ -85,24 +105,44 @@ func (e *Engine) LoadImage(path string) (*LoadImageResult, error) {
 }
 
 func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
+	src, originURL, err := e.resolveSource(p.SourceImg)
+	if err != nil {
+		return nil, err
+	}
+
 	bg := parseHex(p.BgColor, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 	mode := p.BgMode
 	if mode == "" {
 		mode = "solid"
 	}
-	paper := p.PaperSize
-	if paper == "" {
-		paper = "6inch"
+
+	idphotoImg := composeCover(src, 295, 413, bg, mode)
+	singleImg := composeCover(src, 360, 480, bg, mode)
+	socialImg := composeCover(src, 400, 400, bg, mode)
+	layoutImg := composeLayout(idphotoImg, 600, 400)
+
+	idphoto, err := encodeJPEGDataURL(idphotoImg, 90)
+	if err != nil {
+		return nil, err
+	}
+	single, err := encodeJPEGDataURL(singleImg, 90)
+	if err != nil {
+		return nil, err
+	}
+	social, err := encodeJPEGDataURL(socialImg, 90)
+	if err != nil {
+		return nil, err
+	}
+	layout, err := encodeJPEGDataURL(layoutImg, 88)
+	if err != nil {
+		return nil, err
 	}
 
-	origin := placeholderPNG(360, 480, color.RGBA{R: 241, G: 245, B: 249, A: 255}, "原图")
-	single := placeholderPNGMode(360, 480, bg, mode, "单张照片")
-	idphoto := placeholderPNGMode(295, 413, bg, mode, "证件照")
-	social := placeholderPNGMode(400, 400, bg, mode, "社交照")
-	layout := placeholderPNGMode(600, 400, color.RGBA{R: 248, G: 250, B: 252, A: 255}, "solid", paper+"排版照")
+	w := src.Bounds().Dx()
+	h := src.Bounds().Dy()
 
 	return &GenerateResult{
-		OriginImg: origin,
+		OriginImg: originURL,
 		ResultImg: idphoto,
 		Results: ResultBundle{
 			Single:  single,
@@ -110,8 +150,19 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 			Social:  social,
 			IDPhoto: idphoto,
 		},
-		FaceBox:   []float64{90, 80, 270, 300},
-		Landmarks: []float64{140, 160, 220, 160, 180, 210, 150, 250, 210, 250},
+		FaceBox: []float64{
+			float64(w) * 0.25,
+			float64(h) * 0.16,
+			float64(w) * 0.75,
+			float64(h) * 0.72,
+		},
+		Landmarks: []float64{
+			float64(w) * 0.38, float64(h) * 0.36,
+			float64(w) * 0.62, float64(h) * 0.36,
+			float64(w) * 0.50, float64(h) * 0.48,
+			float64(w) * 0.40, float64(h) * 0.58,
+			float64(w) * 0.60, float64(h) * 0.58,
+		},
 		Report: Report{
 			FaceOK:    true,
 			FaceScore: 0.94,
@@ -124,6 +175,33 @@ func (e *Engine) Export(dir string, _ ExportOptions) (*ExportResult, error) {
 		return nil, fmt.Errorf("export dir is empty")
 	}
 	return &ExportResult{OK: true, Dir: dir}, nil
+}
+
+func (e *Engine) resolveSource(sourceImg string) (image.Image, string, error) {
+	sourceImg = strings.TrimSpace(sourceImg)
+	if strings.HasPrefix(sourceImg, "data:image/") {
+		img, err := decodeDataURL(sourceImg)
+		if err != nil {
+			return nil, "", err
+		}
+		img = downscale(img, 1600)
+		url, err := encodeJPEGDataURL(img, 90)
+		if err != nil {
+			return nil, "", err
+		}
+		e.mu.Lock()
+		e.lastImg = img
+		e.lastDataURL = url
+		e.mu.Unlock()
+		return img, url, nil
+	}
+
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.lastImg != nil && e.lastDataURL != "" {
+		return e.lastImg, e.lastDataURL, nil
+	}
+	return nil, "", fmt.Errorf("请先打开或拍摄照片")
 }
 
 func loadImageFile(path string) (image.Image, string, error) {
@@ -155,37 +233,59 @@ func decodeDataURL(dataURL string) (image.Image, error) {
 	return img, nil
 }
 
-func encodeDataURL(img image.Image, format string) (string, error) {
+func encodeJPEGDataURL(img image.Image, quality int) (string, error) {
 	var buf bytes.Buffer
-	mime := "image/png"
-	switch strings.ToLower(format) {
-	case "jpeg", "jpg":
-		mime = "image/jpeg"
-		if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: 92}); err != nil {
-			return "", err
-		}
-	default:
-		if err := png.Encode(&buf, img); err != nil {
-			return "", err
+	if quality <= 0 || quality > 100 {
+		quality = 90
+	}
+	if err := jpeg.Encode(&buf, img, &jpeg.Options{Quality: quality}); err != nil {
+		return "", err
+	}
+	return "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+}
+
+func downscale(src image.Image, maxSide int) image.Image {
+	b := src.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w <= 0 || h <= 0 {
+		return src
+	}
+	if w <= maxSide && h <= maxSide {
+		return src
+	}
+	scale := float64(maxSide) / float64(w)
+	if h > w {
+		scale = float64(maxSide) / float64(h)
+	}
+	nw := max(1, int(float64(w)*scale))
+	nh := max(1, int(float64(h)*scale))
+	return resizeNearest(src, nw, nh)
+}
+
+func resizeNearest(src image.Image, w, h int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	sb := src.Bounds()
+	sw, sh := sb.Dx(), sb.Dy()
+	for y := 0; y < h; y++ {
+		sy := sb.Min.Y + y*sh/h
+		for x := 0; x < w; x++ {
+			sx := sb.Min.X + x*sw/w
+			dst.Set(x, y, src.At(sx, sy))
 		}
 	}
-	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(buf.Bytes()), nil
+	return dst
 }
 
-func placeholderPNG(w, h int, bg color.RGBA, label string) string {
-	return placeholderPNGMode(w, h, bg, "solid", label)
-}
-
-func placeholderPNGMode(w, h int, bg color.RGBA, mode, label string) string {
-	img := image.NewRGBA(image.Rect(0, 0, w, h))
+func fillBackground(dst *image.RGBA, bg color.RGBA, mode string) {
+	b := dst.Bounds()
+	w, h := b.Dx(), b.Dy()
 	white := color.RGBA{R: 255, G: 255, B: 255, A: 255}
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			c := bg
 			switch mode {
 			case "vertical":
-				t := float64(y) / float64(max(h-1, 1))
-				c = mix(bg, white, t)
+				c = mix(bg, white, float64(y)/float64(max(h-1, 1)))
 			case "radial":
 				cx, cy := float64(w)/2, float64(h)*0.42
 				dx, dy := float64(x)-cx, float64(y)-cy
@@ -195,18 +295,58 @@ func placeholderPNGMode(w, h int, bg color.RGBA, mode, label string) string {
 				}
 				c = mix(bg, white, t)
 			}
-			img.Set(x, y, c)
+			dst.Set(x, y, c)
 		}
 	}
-	for y := h / 5; y < h*4/5; y++ {
-		for x := w / 3; x < w*2/3; x++ {
-			img.Set(x, y, color.RGBA{R: 71, G: 85, B: 105, A: 255})
+}
+
+// composeCover draws source photo cover-fitted onto a background canvas.
+func composeCover(src image.Image, w, h int, bg color.RGBA, mode string) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillBackground(dst, bg, mode)
+
+	sb := src.Bounds()
+	sw, sh := sb.Dx(), sb.Dy()
+	if sw <= 0 || sh <= 0 {
+		return dst
+	}
+
+	// Cover scale, slight upward bias for headroom.
+	scale := float64(w) / float64(sw)
+	if float64(sh)*scale < float64(h) {
+		scale = float64(h) / float64(sh)
+	}
+	rw := max(1, int(float64(sw)*scale))
+	rh := max(1, int(float64(sh)*scale))
+	resized := resizeNearest(src, rw, rh)
+
+	ox := (w - rw) / 2
+	oy := (h - rh) / 5 // bias up
+	draw.Draw(dst, image.Rect(ox, oy, ox+rw, oy+rh), resized, image.Point{}, draw.Over)
+	return dst
+}
+
+func composeLayout(tile image.Image, w, h int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	fillBackground(dst, color.RGBA{R: 248, G: 250, B: 252, A: 255}, "solid")
+
+	const cols, rows = 5, 2
+	gap := 10
+	marginX, marginY := 28, 36
+	tileW := (w - marginX*2 - gap*(cols-1)) / cols
+	tileH := (h - marginY*2 - gap*(rows-1)) / rows
+	if tileW < 8 || tileH < 8 {
+		return dst
+	}
+	thumb := composeCover(tile, tileW, tileH, color.RGBA{R: 255, G: 255, B: 255, A: 255}, "solid")
+	for r := 0; r < rows; r++ {
+		for c := 0; c < cols; c++ {
+			x := marginX + c*(tileW+gap)
+			y := marginY + r*(tileH+gap)
+			draw.Draw(dst, image.Rect(x, y, x+tileW, y+tileH), thumb, image.Point{}, draw.Over)
 		}
 	}
-	_ = label
-	var buf bytes.Buffer
-	_ = png.Encode(&buf, img)
-	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())
+	return dst
 }
 
 func mix(a, b color.RGBA, t float64) color.RGBA {
