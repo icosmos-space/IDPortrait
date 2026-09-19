@@ -1,6 +1,7 @@
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useMessage } from 'naive-ui'
+import { detectFaces, loadFaceModels, qualifyDetections, toCaptureGeometry } from '../../services/faceDetect'
 
 const props = defineProps({
   show: { type: Boolean, default: false },
@@ -10,13 +11,46 @@ const emit = defineEmits(['update:show', 'capture'])
 
 const message = useMessage()
 const cameraVideo = ref(null)
+const overlayCanvas = ref(null)
 const cameraStream = ref(null)
 const cameraReady = ref(false)
 const cameraError = ref('')
 const capturing = ref(false)
 const fileInput = ref(null)
+const faceOk = ref(false)
+const faceReason = ref('正在加载人脸模型…')
+
+let detectToken = 0
+let latestFace = null
+
+const CONTOURS = [
+  [0, 16, false],
+  [17, 21, false],
+  [22, 26, false],
+  [27, 30, false],
+  [31, 35, false],
+  [36, 41, true],
+  [42, 47, true],
+  [48, 59, true],
+  [60, 67, true],
+]
+
+function stopDetect() {
+  detectToken += 1
+  latestFace = null
+  faceOk.value = false
+  clearOverlay()
+}
+
+function clearOverlay() {
+  const canvas = overlayCanvas.value
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  ctx?.clearRect(0, 0, canvas.width, canvas.height)
+}
 
 function stopCamera() {
+  stopDetect()
   if (cameraStream.value) {
     cameraStream.value.getTracks().forEach((t) => t.stop())
     cameraStream.value = null
@@ -37,13 +71,95 @@ function cameraUnavailableReason() {
   return ''
 }
 
+function drawOverlay(detections, ok) {
+  const video = cameraVideo.value
+  const canvas = overlayCanvas.value
+  if (!video || !canvas) return
+  const w = video.videoWidth
+  const h = video.videoHeight
+  if (!w || !h) return
+  if (canvas.width !== w) canvas.width = w
+  if (canvas.height !== h) canvas.height = h
+  const ctx = canvas.getContext('2d')
+  ctx.clearRect(0, 0, w, h)
+  const color = ok ? '#3dbe7a' : '#ff6b8a'
+  const radius = Math.max(1.6, w / 420)
+  ctx.lineWidth = Math.max(1.2, w / 480)
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+
+  for (const face of detections) {
+    const box = face.detection.box
+    ctx.strokeRect(box.x, box.y, box.width, box.height)
+    const pts = face.landmarks.positions
+    ctx.beginPath()
+    for (const [start, end, closed] of CONTOURS) {
+      ctx.moveTo(pts[start].x, pts[start].y)
+      for (let i = start + 1; i <= end; i += 1) {
+        ctx.lineTo(pts[i].x, pts[i].y)
+      }
+      if (closed) ctx.closePath()
+    }
+    ctx.stroke()
+    for (const p of pts) {
+      ctx.beginPath()
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2)
+      ctx.fill()
+    }
+  }
+}
+
+async function runDetectLoop(token) {
+  const video = cameraVideo.value
+  if (!video || token !== detectToken) return
+  if (video.readyState < 2) {
+    setTimeout(() => runDetectLoop(token), 120)
+    return
+  }
+  try {
+    const detections = await detectFaces(video)
+    if (token !== detectToken) return
+    const verdict = qualifyDetections(detections, video.videoWidth, video.videoHeight)
+    latestFace = verdict.ok ? verdict.face : null
+    faceOk.value = verdict.ok
+    faceReason.value = verdict.reason
+    drawOverlay(detections, verdict.ok)
+  } catch (err) {
+    if (token !== detectToken) return
+    latestFace = null
+    faceOk.value = false
+    faceReason.value = err?.message || '人脸检测失败'
+  }
+  if (token === detectToken) {
+    setTimeout(() => runDetectLoop(token), 90)
+  }
+}
+
+async function startDetect() {
+  const token = ++detectToken
+  faceOk.value = false
+  faceReason.value = '正在加载人脸模型…'
+  try {
+    await loadFaceModels()
+  } catch (err) {
+    if (token !== detectToken) return
+    faceReason.value = err?.message || '人脸模型加载失败'
+    return
+  }
+  if (token !== detectToken) return
+  faceReason.value = '正在检测人脸…'
+  runDetectLoop(token)
+}
+
 async function startCamera() {
   stopCamera()
   cameraError.value = ''
   cameraReady.value = false
+  faceReason.value = '正在打开摄像头…'
   const reason = cameraUnavailableReason()
   if (reason) {
     cameraError.value = reason
+    faceReason.value = reason
     return
   }
   try {
@@ -60,10 +176,12 @@ async function startCamera() {
       cameraVideo.value.srcObject = stream
       await cameraVideo.value.play()
       cameraReady.value = true
+      await startDetect()
     }
   } catch (err) {
     cameraError.value = err?.message || '无法打开摄像头，请检查权限'
     cameraReady.value = false
+    faceReason.value = cameraError.value
   }
 }
 
@@ -73,6 +191,8 @@ watch(
     if (visible) {
       cameraError.value = ''
       cameraReady.value = false
+      faceOk.value = false
+      faceReason.value = '正在打开摄像头…'
       await nextTick()
       await startCamera()
     } else {
@@ -80,6 +200,8 @@ watch(
     }
   },
 )
+
+onBeforeUnmount(stopCamera)
 
 function close() {
   emit('update:show', false)
@@ -133,6 +255,10 @@ function capturePhoto() {
     message.warning('摄像头尚未就绪')
     return
   }
+  if (!faceOk.value || !latestFace) {
+    message.warning(faceReason.value || '当前姿态不合格，不能拍照')
+    return
+  }
   capturing.value = true
   const video = cameraVideo.value
   const canvas = document.createElement('canvas')
@@ -145,21 +271,7 @@ function capturePhoto() {
   ctx.scale(-1, 1)
   ctx.drawImage(video, 0, 0, w, h)
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
-  const faceBox = [
-    Math.round(w * 0.28),
-    Math.round(h * 0.16),
-    Math.round(w * 0.72),
-    Math.round(h * 0.72),
-  ]
-  const cx = (faceBox[0] + faceBox[2]) / 2
-  const cy = (faceBox[1] + faceBox[3]) / 2
-  const landmarks = [
-    cx - w * 0.08, cy - h * 0.06,
-    cx + w * 0.08, cy - h * 0.06,
-    cx, cy + h * 0.02,
-    cx - w * 0.06, cy + h * 0.1,
-    cx + w * 0.06, cy + h * 0.1,
-  ]
+  const { faceBox, landmarks } = toCaptureGeometry(latestFace, w)
   capturing.value = false
   emit('capture', { dataUrl, faceBox, landmarks })
 }
@@ -186,11 +298,19 @@ function capturePhoto() {
           playsinline
           muted
         />
+        <canvas ref="overlayCanvas" class="camera-overlay" />
         <div class="camera-guide" aria-hidden="true" />
+        <p
+          v-if="!cameraError"
+          class="camera-status"
+          :data-ok="faceOk"
+        >
+          {{ faceReason }}
+        </p>
         <p v-if="cameraError" class="camera-error">{{ cameraError }}</p>
         <p v-else-if="!cameraReady" class="camera-loading">正在打开摄像头…</p>
       </div>
-      <p class="camera-tip">请正对镜头，保持面部居中后点击拍照；也可用相册选图</p>
+      <p class="camera-tip">请单人正对镜头、面部居中且端正；检测到合格姿态后才能拍照</p>
       <input
         ref="fileInput"
         type="file"
@@ -208,10 +328,10 @@ function capturePhoto() {
         <button
           class="btn primary"
           type="button"
-          :disabled="!cameraReady || capturing"
+          :disabled="!cameraReady || capturing || !faceOk"
           @click="capturePhoto"
         >
-          {{ capturing ? '处理中…' : '拍照' }}
+          {{ capturing ? '处理中…' : faceOk ? '拍照' : '不合格' }}
         </button>
       </div>
     </template>

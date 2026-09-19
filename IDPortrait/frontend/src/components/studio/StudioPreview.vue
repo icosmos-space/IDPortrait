@@ -46,6 +46,74 @@ function paintPlaceholder(canvas, title, subtitle) {
   ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 16)
 }
 
+function pointAt(landmarks, index) {
+  const i = index * 2
+  if (i + 1 >= landmarks.length) return null
+  return { x: landmarks[i], y: landmarks[i + 1] }
+}
+
+function averagePoints(landmarks, start, end) {
+  let x = 0
+  let y = 0
+  let n = 0
+  for (let i = start; i <= end; i += 1) {
+    const p = pointAt(landmarks, i)
+    if (!p) return null
+    x += p.x
+    y += p.y
+    n += 1
+  }
+  if (!n) return null
+  return { x: x / n, y: y / n }
+}
+
+/** 左眼、右眼、鼻尖、左嘴角、右嘴角。68 点取关键索引，已是 5 点则直接用。 */
+function fiveKeypoints(landmarks) {
+  if (!landmarks?.length) return null
+  if (landmarks.length === 10) {
+    return [0, 1, 2, 3, 4].map((i) => pointAt(landmarks, i))
+  }
+  if (landmarks.length < 68 * 2) return null
+  const leftEye = averagePoints(landmarks, 36, 41)
+  const rightEye = averagePoints(landmarks, 42, 47)
+  const nose = pointAt(landmarks, 30)
+  const mouthLeft = pointAt(landmarks, 48)
+  const mouthRight = pointAt(landmarks, 54)
+  if (!leftEye || !rightEye || !nose || !mouthLeft || !mouthRight) return null
+  return [leftEye, rightEye, nose, mouthLeft, mouthRight]
+}
+
+function drawFiveKeypoints(ctx, landmarks, sx, sy) {
+  const pts = fiveKeypoints(landmarks)
+  if (!pts) return
+  const mapped = pts.map((p) => ({ x: p.x * sx, y: p.y * sy }))
+  const links = [
+    [0, 1],
+    [0, 2],
+    [1, 2],
+    [2, 3],
+    [2, 4],
+    [3, 4],
+  ]
+  ctx.save()
+  ctx.strokeStyle = '#c45b7a'
+  ctx.fillStyle = '#c45b7a'
+  ctx.lineWidth = 1.5
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  for (const [a, b] of links) {
+    ctx.moveTo(mapped[a].x, mapped[a].y)
+    ctx.lineTo(mapped[b].x, mapped[b].y)
+  }
+  ctx.stroke()
+  for (const p of mapped) {
+    ctx.beginPath()
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2)
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
 function paintCheckerboard(ctx, w, h, size = 12) {
   const a = '#eceff3'
   const b = '#f7f9fb'
@@ -105,26 +173,7 @@ function drawOriginSide() {
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
     const sx = canvas.width / img.width
     const sy = canvas.height / img.height
-    const faceBox = view.faceBox
-    if (faceBox?.length === 4) {
-      ctx.strokeStyle = '#c45b7a'
-      ctx.lineWidth = 2
-      ctx.strokeRect(
-        faceBox[0] * sx,
-        faceBox[1] * sy,
-        (faceBox[2] - faceBox[0]) * sx,
-        (faceBox[3] - faceBox[1]) * sy,
-      )
-    }
-    const landmarks = view.landmarks
-    if (landmarks?.length) {
-      ctx.fillStyle = '#c45b7a'
-      for (let i = 0; i < landmarks.length; i += 2) {
-        ctx.beginPath()
-        ctx.arc(landmarks[i] * sx, landmarks[i + 1] * sy, 3, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    }
+    drawFiveKeypoints(ctx, view.landmarks, sx, sy)
   }
   img.onerror = () => {
     paintPlaceholder(canvas, '原图加载失败', '请重新选择图片')
