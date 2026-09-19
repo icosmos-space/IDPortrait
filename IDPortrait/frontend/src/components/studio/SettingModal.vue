@@ -82,6 +82,11 @@ function onRemoteSwitch(v) {
         <label>AI 图片预检</label>
         <n-switch v-model:value="setting.enableAiDetect" size="small" />
       </div>
+      <label class="modal-label">进度样式</label>
+      <n-radio-group v-model:value="setting.progressStyle" name="progress-style">
+        <n-radio value="card">白底卡片</n-radio>
+        <n-radio value="ghost">透明浮层</n-radio>
+      </n-radio-group>
 
       <div class="remote-block">
         <div class="remote-title">远程服务</div>

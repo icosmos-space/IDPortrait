@@ -125,6 +125,7 @@ export function useStudio() {
     enableAiDetect: true,
     remoteEnabled: false,
     remotePort: 8787,
+    progressStyle: 'ghost',
   })
   const remoteStatus = reactive({
     running: false,
@@ -466,6 +467,11 @@ export function useStudio() {
   }
 
   onMounted(async () => {
+    try {
+      setting.progressStyle = localStorage.getItem('idportrait.progressStyle') === 'card' ? 'card' : 'ghost'
+    } catch {
+      setting.progressStyle = 'ghost'
+    }
     try {
       const { EventsOn } = await import('../../wailsjs/runtime/runtime')
       unbinders.push(EventsOn('IDPhoto.OnProgress', onProgress))
@@ -976,6 +982,11 @@ export function useStudio() {
   }
 
   function saveSetting() {
+    try {
+      localStorage.setItem('idportrait.progressStyle', setting.progressStyle === 'ghost' ? 'ghost' : 'card')
+    } catch {
+      // ignore storage failures
+    }
     showSettingModal.value = false
     message.success('设置已保存')
   }

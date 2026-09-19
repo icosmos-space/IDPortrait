@@ -207,6 +207,7 @@ const {
 
     <ProgressModal
       :show="processing"
+      :variant="setting.progressStyle"
       :status-text="statusText"
       :progress-percent="progressPercent"
     />

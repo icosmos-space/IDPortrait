@@ -5,6 +5,7 @@ defineProps({
   show: { type: Boolean, default: false },
   statusText: { type: String, default: '处理中…' },
   progressPercent: { type: Number, default: 0 },
+  variant: { type: String, default: 'card' },
 })
 </script>
 
@@ -16,7 +17,7 @@ defineProps({
     :closable="false"
     transform-origin="center"
   >
-    <div class="progress-modal" role="status" aria-live="polite">
+    <div class="progress-modal" :class="{ ghost: variant === 'ghost' }" role="status" aria-live="polite">
       <div class="progress-logo-wrap">
         <span class="progress-logo-ring" aria-hidden="true" />
         <img class="progress-logo" :src="logoSvg" alt="" />
