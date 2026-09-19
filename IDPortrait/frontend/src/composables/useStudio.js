@@ -255,6 +255,17 @@ export function useStudio() {
     resultSet.idphoto = ''
   }
 
+  function clearResults() {
+    mattingView.value = null
+    resultView.value = null
+    hasResult.value = false
+    resultSet.single = ''
+    resultSet.layout = ''
+    resultSet.social = ''
+    resultSet.idphoto = ''
+    progressPercent.value = 0
+  }
+
   function onProgress(data) {
     const payload = data?.percent !== undefined ? data : data?.[0] || data
     progressPercent.value = payload.percent ?? 0
@@ -580,8 +591,8 @@ export function useStudio() {
       isRephoto: false,
       isAiImage: false,
     })
+    clearResults()
     setOriginView(dataUrl, faceBox, landmarks)
-    mattingView.value = null
     activeOriginTab.value = 'original'
     statusText.value = '已拍照'
     processTagType.value = 'success'
@@ -602,8 +613,8 @@ export function useStudio() {
         throw new Error('未获取到图片数据')
       }
       Object.assign(report, ret.report)
+      clearResults()
       setOriginView(ret.imgBase64, ret.faceBox, ret.landmarks)
-      mattingView.value = null
       activeOriginTab.value = 'original'
       statusText.value = '已加载图片'
       processTagType.value = 'success'
