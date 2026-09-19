@@ -10,6 +10,7 @@ import PrintModal from './components/studio/PrintModal.vue'
 import SettingModal from './components/studio/SettingModal.vue'
 import AboutModal from './components/studio/AboutModal.vue'
 import UpgradeModal from './components/studio/UpgradeModal.vue'
+import ProgressModal from './components/studio/ProgressModal.vue'
 import './styles/studio.css'
 
 const {
@@ -202,6 +203,12 @@ const {
       :app-version="appVersion"
       :checking-upgrade="checkingUpgrade"
       @check="checkAndUpgrade"
+    />
+
+    <ProgressModal
+      :show="processing"
+      :status-text="statusText"
+      :progress-percent="progressPercent"
     />
   </div>
 </template>
