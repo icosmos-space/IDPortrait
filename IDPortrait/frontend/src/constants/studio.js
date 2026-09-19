@@ -3,7 +3,8 @@ export const APP_VERSION = '1.0.0'
 export const RESULT_TABS = [
   { key: 'single', label: '单张照片', hint: '精修单图' },
   { key: 'layout', label: '排版照', hint: '6寸打印排版' },
-  { key: 'social', label: '社交照', hint: '方形社交尺寸' },
+  { key: 'social', label: '社交一', hint: '倾斜相框' },
+  { key: 'social2', label: '社交二', hint: '竖版相框' },
   { key: 'idphoto', label: '证件照', hint: '标准证件规格' },
 ]
 

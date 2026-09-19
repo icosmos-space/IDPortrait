@@ -125,7 +125,32 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 	hd := compositeOn(bundle.hd, bg, mode)
 	paperW, paperH := paperPixels(p.PaperSize)
 	layout := layoutSheet(std, paperW, paperH)
-	social := squareSocial(std, bg, mode)
+	social, social2, err := socialTemplates(std)
+	if err != nil {
+		return nil, err
+	}
+	if p.EnableWatermark {
+		std, err = paintWatermark(std, p)
+		if err != nil {
+			return nil, fmt.Errorf("水印失败: %w", err)
+		}
+		hd, err = paintWatermark(hd, p)
+		if err != nil {
+			return nil, err
+		}
+		layout, err = paintWatermark(layout, p)
+		if err != nil {
+			return nil, err
+		}
+		social, err = paintWatermark(social, p)
+		if err != nil {
+			return nil, err
+		}
+		social2, err = paintWatermark(social2, p)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	var idphoto string
 	if p.EnableTargetFileSize && p.TargetFileSize > 0 {
@@ -141,6 +166,10 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 		return nil, err
 	}
 	socialURL, err := encodeJPEGDataURL(social, 90)
+	if err != nil {
+		return nil, err
+	}
+	social2URL, err := encodeJPEGDataURL(social2, 90)
 	if err != nil {
 		return nil, err
 	}
@@ -162,6 +191,7 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 			Single:  single,
 			Layout:  layoutURL,
 			Social:  socialURL,
+			Social2: social2URL,
 			IDPhoto: idphoto,
 		},
 		FaceBox:   []float64{face.x, face.y, face.x + face.w, face.y + face.h},

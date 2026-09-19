@@ -42,6 +42,7 @@ export function useStudio() {
     single: '',
     layout: '',
     social: '',
+    social2: '',
     idphoto: '',
   })
 
@@ -303,6 +304,7 @@ export function useStudio() {
     resultSet.single = ''
     resultSet.layout = ''
     resultSet.social = ''
+    resultSet.social2 = ''
     resultSet.idphoto = ''
   }
 
@@ -313,6 +315,7 @@ export function useStudio() {
     resultSet.single = ''
     resultSet.layout = ''
     resultSet.social = ''
+    resultSet.social2 = ''
     resultSet.idphoto = ''
     progressPercent.value = 0
   }
@@ -346,8 +349,9 @@ export function useStudio() {
     resultSet.single = next.single || payload.resultImg || ''
     resultSet.layout = next.layout || ''
     resultSet.social = next.social || ''
+    resultSet.social2 = next.social2 || ''
     resultSet.idphoto = next.idphoto || next.IDPhoto || payload.resultImg || ''
-    hasResult.value = Boolean(resultSet.single || resultSet.layout || resultSet.social || resultSet.idphoto)
+    hasResult.value = Boolean(resultSet.single || resultSet.layout || resultSet.social || resultSet.social2 || resultSet.idphoto)
     if (!hasResult.value) {
       message.warning('未生成成品图')
       processTagType.value = 'warning'
@@ -374,6 +378,7 @@ export function useStudio() {
         single: results.single || results.Single || '',
         layout: results.layout || results.Layout || '',
         social: results.social || results.Social || '',
+        social2: results.social2 || results.Social2 || '',
         idphoto: results.idphoto || results.IDPhoto || '',
       },
       faceBox: payload.faceBox || payload.FaceBox || [],

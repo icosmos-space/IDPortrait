@@ -158,6 +158,7 @@ export namespace core {
 	    single: string;
 	    layout: string;
 	    social: string;
+	    social2: string;
 	    idphoto: string;
 	
 	    static createFrom(source: any = {}) {
@@ -169,6 +170,7 @@ export namespace core {
 	        this.single = source["single"];
 	        this.layout = source["layout"];
 	        this.social = source["social"];
+	        this.social2 = source["social2"];
 	        this.idphoto = source["idphoto"];
 	    }
 	}

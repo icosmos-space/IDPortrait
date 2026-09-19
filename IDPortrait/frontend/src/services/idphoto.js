@@ -453,7 +453,8 @@ export const IDPhotoService = {
       results: {
         single,
         layout: makeLayoutDataUrl(bg, `${paperLabel}排版照`, mode),
-        social: source || makeCanvasDataUrl(400, 400, bg, '社交照', mode),
+        social: source || makeCanvasDataUrl(1080, 1400, bg, '社交一', mode),
+        social2: source || makeCanvasDataUrl(1080, 1440, bg, '社交二', mode),
         idphoto,
       },
       faceBox: [90, 80, 270, 300],

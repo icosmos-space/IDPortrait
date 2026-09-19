@@ -54,6 +54,7 @@ type ResultBundle struct {
 	Single  string `json:"single"`
 	Layout  string `json:"layout"`
 	Social  string `json:"social"`
+	Social2 string `json:"social2"`
 	IDPhoto string `json:"idphoto"`
 }
 
