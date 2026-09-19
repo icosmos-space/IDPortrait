@@ -60,7 +60,9 @@ body,
 #app > .n-config-provider,
 .n-config-provider,
 .n-config-provider > .n-message-provider,
-.n-message-provider {
+.n-message-provider,
+.n-message-provider > .n-dialog-provider,
+.n-dialog-provider {
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -68,7 +70,8 @@ body,
   min-height: 0;
 }
 
-.n-message-provider > * {
+.n-message-provider > *,
+.n-dialog-provider > * {
   flex: 1 1 auto;
   min-height: 0;
 }

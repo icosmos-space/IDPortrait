@@ -1,6 +1,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
-import { useMessage } from 'naive-ui'
+import { useDialog, useMessage } from 'naive-ui'
 import { IDPhotoService } from '../services/idphoto'
+import { requirePerson } from '../services/faceDetect'
 import {
   RESULT_TABS,
   ORIGIN_TABS,
@@ -16,6 +17,7 @@ import {
 
 export function useStudio() {
   const message = useMessage()
+  const dialog = useDialog()
 
   const expandedPanels = ref(['beauty'])
   const processing = ref(false)
@@ -612,9 +614,30 @@ export function useStudio() {
       if (!ret?.imgBase64) {
         throw new Error('未获取到图片数据')
       }
-      Object.assign(report, ret.report)
+      statusText.value = '正在检测人脸…'
+      processTagType.value = 'success'
+      const person = await requirePerson(ret.imgBase64)
+      if (!person?.ok) {
+        const many = String(person?.reason || '').includes('多张')
+        const title = many ? '人脸太多' : '没有人脸'
+        const detail = many
+          ? '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
+          : '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
+        statusText.value = title
+        processTagType.value = 'error'
+        dialog.error({
+          title,
+          content: detail,
+          positiveText: '知道了',
+          closable: false,
+          maskClosable: false,
+          style: { width: '460px' },
+        })
+        return
+      }
+      Object.assign(report, { ...ret.report, faceOk: true })
       clearResults()
-      setOriginView(ret.imgBase64, ret.faceBox, ret.landmarks)
+      setOriginView(person.dataUrl || ret.imgBase64, person.faceBox, person.landmarks)
       activeOriginTab.value = 'original'
       statusText.value = '已加载图片'
       processTagType.value = 'success'

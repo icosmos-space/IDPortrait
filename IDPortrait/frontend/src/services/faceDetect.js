@@ -24,13 +24,85 @@ export function loadFaceModels() {
   return loading
 }
 
-export async function detectFaces(video) {
+export async function detectFaces(input, { inputSize = 320, scoreThreshold = 0.45 } = {}) {
   const api = await loadFaceModels()
   const options = new api.TinyFaceDetectorOptions({
-    inputSize: 320,
-    scoreThreshold: 0.45,
+    inputSize,
+    scoreThreshold,
   })
-  return api.detectAllFaces(video, options).withFaceLandmarks()
+  return api.detectAllFaces(input, options).withFaceLandmarks()
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('图片无法读取'))
+    img.src = src
+  })
+}
+
+function rotateImage(img, degrees) {
+  const w = img.naturalWidth || img.width
+  const h = img.naturalHeight || img.height
+  const canvas = document.createElement('canvas')
+  const swap = degrees === 90 || degrees === 270
+  canvas.width = swap ? h : w
+  canvas.height = swap ? w : h
+  const ctx = canvas.getContext('2d')
+  ctx.translate(canvas.width / 2, canvas.height / 2)
+  ctx.rotate((degrees * Math.PI) / 180)
+  ctx.drawImage(img, -w / 2, -h / 2)
+  return canvas
+}
+
+/** 静止图片：只接受恰好一张人脸。方向不对时再试 90/180/270，并转到人脸朝上。 */
+export async function requirePerson(dataUrl) {
+  const img = await loadImageElement(dataUrl)
+  const angles = [0, 90, 270, 180]
+  let best = null
+  let sawMultiple = false
+  for (const angle of angles) {
+    const source = angle === 0 ? img : rotateImage(img, angle)
+    const detections = await detectFaces(source, { inputSize: 416, scoreThreshold: 0.35 })
+    if (!detections?.length) continue
+    if (detections.length > 1) {
+      sawMultiple = true
+      continue
+    }
+    const face = detections[0]
+    const score = face.detection.score ?? 0
+    const box = face.detection.box
+    const area = box.width * box.height
+    if (!best || score > best.score || (score === best.score && area > best.area)) {
+      best = {
+        ok: true,
+        score,
+        area,
+        ...toImageGeometry(face),
+        dataUrl: angle === 0 ? dataUrl : source.toDataURL('image/jpeg', 0.92),
+      }
+    }
+    if (angle === 0 && score >= 0.55) break
+  }
+  if (best) return best
+  if (sawMultiple) return { ok: false, reason: '检测到多张人脸，已拒绝' }
+  return { ok: false, reason: '未检测到人脸，已拒绝' }
+}
+
+export function toImageGeometry(face) {
+  const box = face.detection.box
+  const faceBox = [
+    Math.round(box.x),
+    Math.round(box.y),
+    Math.round(box.x + box.width),
+    Math.round(box.y + box.height),
+  ]
+  const landmarks = []
+  for (const p of face.landmarks.positions) {
+    landmarks.push(p.x, p.y)
+  }
+  return { faceBox, landmarks }
 }
 
 function avg(points) {

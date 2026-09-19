@@ -1,5 +1,5 @@
 import { createApp, h } from 'vue'
-import naive, { NConfigProvider, NMessageProvider, zhCN, dateZhCN } from 'naive-ui'
+import naive, { NConfigProvider, NDialogProvider, NMessageProvider, zhCN, dateZhCN } from 'naive-ui'
 import App from './App.vue'
 
 const themeOverrides = {
@@ -57,7 +57,12 @@ const app = createApp({
             NMessageProvider,
             { style: fill },
             {
-              default: () => h(App),
+              default: () =>
+                h(
+                  NDialogProvider,
+                  { style: fill },
+                  { default: () => h(App) },
+                ),
             },
           ),
       },
