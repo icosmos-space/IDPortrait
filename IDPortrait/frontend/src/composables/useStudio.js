@@ -615,8 +615,14 @@ export function useStudio() {
         throw new Error('未获取到图片数据')
       }
       statusText.value = '正在检测人脸…'
-      processTagType.value = 'success'
-      const person = await requirePerson(ret.imgBase64)
+      processTagType.value = 'warning'
+      processing.value = true
+      progressPercent.value = 6
+      const person = await requirePerson(ret.imgBase64, ({ percent, msg }) => {
+        progressPercent.value = percent ?? progressPercent.value
+        if (msg) statusText.value = msg
+      })
+      processing.value = false
       if (!person?.ok) {
         const many = String(person?.reason || '').includes('多张')
         const title = many ? '人脸太多' : '没有人脸'
@@ -642,6 +648,7 @@ export function useStudio() {
       statusText.value = '已加载图片'
       processTagType.value = 'success'
     } catch (e) {
+      processing.value = false
       message.error(e?.message || '加载图片失败')
       statusText.value = '加载失败'
       processTagType.value = 'error'

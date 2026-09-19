@@ -57,12 +57,21 @@ function rotateImage(img, degrees) {
 }
 
 /** 静止图片：只接受恰好一张人脸。方向不对时再试 90/180/270，并转到人脸朝上。 */
-export async function requirePerson(dataUrl) {
+export async function requirePerson(dataUrl, onProgress) {
+  const report = (percent, msg) => {
+    if (typeof onProgress === 'function') onProgress({ percent, msg })
+  }
+  report(8, '正在加载人脸模型…')
+  await loadFaceModels()
+  report(22, '正在读取照片…')
   const img = await loadImageElement(dataUrl)
   const angles = [0, 90, 270, 180]
+  const labels = ['正在检测人脸…', '正在调整方向…', '正在继续检测…', '正在确认人脸…']
   let best = null
   let sawMultiple = false
-  for (const angle of angles) {
+  for (let i = 0; i < angles.length; i += 1) {
+    const angle = angles[i]
+    report(28 + Math.round((i / angles.length) * 62), labels[i])
     const source = angle === 0 ? img : rotateImage(img, angle)
     const detections = await detectFaces(source, { inputSize: 416, scoreThreshold: 0.35 })
     if (!detections?.length) continue
@@ -85,6 +94,7 @@ export async function requirePerson(dataUrl) {
     }
     if (angle === 0 && score >= 0.55) break
   }
+  report(100, best ? '检测完成' : '检测结束')
   if (best) return best
   if (sawMultiple) return { ok: false, reason: '检测到多张人脸，已拒绝' }
   return { ok: false, reason: '未检测到人脸，已拒绝' }
