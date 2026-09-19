@@ -32,6 +32,28 @@ export namespace core {
 	        this.dir = source["dir"];
 	    }
 	}
+	export class FaceCheckResult {
+	    ok: boolean;
+	    reason: string;
+	    imgBase64: string;
+	    faceBox: number[];
+	    landmarks: number[];
+	    score: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new FaceCheckResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.reason = source["reason"];
+	        this.imgBase64 = source["imgBase64"];
+	        this.faceBox = source["faceBox"];
+	        this.landmarks = source["landmarks"];
+	        this.score = source["score"];
+	    }
+	}
 	export class GenerateParams {
 	    template: string;
 	    bgMode: string;

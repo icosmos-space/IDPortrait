@@ -1,7 +1,6 @@
 import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { IDPhotoService } from '../services/idphoto'
-import { requirePerson } from '../services/faceDetect'
 import {
   RESULT_TABS,
   ORIGIN_TABS,
@@ -193,6 +192,55 @@ export function useStudio() {
         isRephoto: report.isRephoto ?? report.IsRephoto ?? false,
         isAiImage: report.isAiImage ?? report.IsAiImage ?? false,
       },
+    }
+  }
+
+  function normalizeFaceCheck(ret) {
+    if (!ret || typeof ret !== 'object') {
+      return { ok: false, reason: '未检测到人脸，已拒绝' }
+    }
+    return {
+      ok: !!(ret.ok ?? ret.OK),
+      reason: ret.reason || ret.Reason || '',
+      dataUrl: ret.imgBase64 || ret.ImgBase64 || '',
+      faceBox: ret.faceBox || ret.FaceBox || [],
+      landmarks: ret.landmarks || ret.Landmarks || [],
+      score: ret.score ?? ret.Score ?? 0,
+    }
+  }
+
+  function showFaceReject(person) {
+    const many = String(person?.reason || '').includes('多张')
+    const title = many ? '人脸太多' : '没有人脸'
+    const detail = many
+      ? '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
+      : '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
+    statusText.value = title
+    processTagType.value = 'error'
+    dialog.error({
+      title,
+      content: detail,
+      positiveText: '知道了',
+      closable: false,
+      maskClosable: false,
+      style: { width: '460px' },
+    })
+  }
+
+  async function detectBeforePreview(dataUrl) {
+    statusText.value = '正在检测人脸…'
+    processTagType.value = 'warning'
+    processing.value = true
+    progressPercent.value = 12
+    try {
+      const person = normalizeFaceCheck(await IDPhotoService.DetectFace(dataUrl))
+      progressPercent.value = person.ok ? 100 : 0
+      return person
+    } catch (e) {
+      progressPercent.value = 0
+      throw e
+    } finally {
+      processing.value = false
     }
   }
 
@@ -588,24 +636,35 @@ export function useStudio() {
     showCameraModal.value = false
   }
 
-  function applyCapture({ dataUrl, faceBox, landmarks }) {
+  async function applyCapture({ dataUrl }) {
     if (!dataUrl) {
       message.error('拍照结果为空')
       return
     }
-    Object.assign(report, {
-      faceOk: true,
-      faceScore: 0.91,
-      isRephoto: false,
-      isAiImage: false,
-    })
-    clearResults()
-    setOriginView(dataUrl, faceBox, landmarks)
-    activeOriginTab.value = 'original'
-    statusText.value = '已拍照'
-    processTagType.value = 'success'
-    closeCameraModal()
-    message.success('拍照成功')
+    try {
+      const person = await detectBeforePreview(dataUrl)
+      if (!person?.ok) {
+        showFaceReject(person)
+        return
+      }
+      Object.assign(report, {
+        faceOk: true,
+        faceScore: person.score || 0.9,
+        isRephoto: false,
+        isAiImage: false,
+      })
+      clearResults()
+      setOriginView(person.dataUrl || dataUrl, person.faceBox, person.landmarks)
+      activeOriginTab.value = 'original'
+      statusText.value = '已拍照'
+      processTagType.value = 'success'
+      closeCameraModal()
+      message.success('拍照成功')
+    } catch (e) {
+      message.error(e?.message || '人脸检测失败')
+      statusText.value = '检测失败'
+      processTagType.value = 'error'
+    }
   }
 
   async function loadImage(pathOrDataUrl) {
@@ -620,34 +679,12 @@ export function useStudio() {
       if (!ret?.imgBase64) {
         throw new Error('未获取到图片数据')
       }
-      statusText.value = '正在检测人脸…'
-      processTagType.value = 'warning'
-      processing.value = true
-      progressPercent.value = 6
-      const person = await requirePerson(ret.imgBase64, ({ percent, msg }) => {
-        progressPercent.value = percent ?? progressPercent.value
-        if (msg) statusText.value = msg
-      })
-      processing.value = false
+      const person = await detectBeforePreview(ret.imgBase64)
       if (!person?.ok) {
-        const many = String(person?.reason || '').includes('多张')
-        const title = many ? '人脸太多' : '没有人脸'
-        const detail = many
-          ? '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
-          : '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
-        statusText.value = title
-        processTagType.value = 'error'
-        dialog.error({
-          title,
-          content: detail,
-          positiveText: '知道了',
-          closable: false,
-          maskClosable: false,
-          style: { width: '460px' },
-        })
+        showFaceReject(person)
         return
       }
-      Object.assign(report, { ...ret.report, faceOk: true })
+      Object.assign(report, { ...ret.report, faceOk: true, faceScore: person.score || ret.report.faceScore })
       clearResults()
       setOriginView(person.dataUrl || ret.imgBase64, person.faceBox, person.landmarks)
       activeOriginTab.value = 'original'

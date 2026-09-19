@@ -400,6 +400,15 @@ export const IDPhotoService = {
     }
   },
 
+  async DetectFace(image) {
+    const res = await tryGo('DetectFace', image)
+    if (res !== undefined) return res
+    if (await detectHttpMode()) {
+      return apiJSON('/detect-face', { path: image })
+    }
+    throw new Error('人脸检测服务不可用')
+  },
+
   async Generate(params) {
     const res = await tryGo('Generate', params)
     if (res !== undefined) return res

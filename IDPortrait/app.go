@@ -63,6 +63,10 @@ func (a *App) LoadImage(path string) (*core.LoadImageResult, error) {
 	return a.svc.LoadImage(path)
 }
 
+func (a *App) DetectFace(src string) (*core.FaceCheckResult, error) {
+	return a.svc.DetectFace(src)
+}
+
 func (a *App) Generate(params core.GenerateParams) (*core.GenerateResult, error) {
 	return a.svc.Generate(params)
 }

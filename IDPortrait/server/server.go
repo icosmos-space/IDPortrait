@@ -84,6 +84,7 @@ func (s *Server) Start(port int) (string, error) {
 	api := e.Group("/api")
 	api.GET("/health", s.handleHealth)
 	api.POST("/load-image", s.handleLoadImage)
+	api.POST("/detect-face", s.handleDetectFace)
 	api.POST("/generate", s.handleGenerate)
 	api.POST("/export", s.handleExport)
 	api.GET("/photo-specs", s.handlePhotoSpecs)
@@ -221,6 +222,27 @@ func (s *Server) handleLoadImage(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 	res, err := s.svc.LoadImage(req.Path)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+	return c.JSON(http.StatusOK, res)
+}
+
+type detectFaceReq struct {
+	Path  string `json:"path"`
+	Image string `json:"image"`
+}
+
+func (s *Server) handleDetectFace(c echo.Context) error {
+	var req detectFaceReq
+	if err := c.Bind(&req); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+	src := strings.TrimSpace(req.Path)
+	if src == "" {
+		src = strings.TrimSpace(req.Image)
+	}
+	res, err := s.svc.DetectFace(src)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

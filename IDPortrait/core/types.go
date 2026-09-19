@@ -2,49 +2,49 @@ package core
 
 // Report is the face / authenticity diagnosis result.
 type Report struct {
-	FaceOK     bool    `json:"faceOk"`
-	FaceScore  float64 `json:"faceScore"`
-	IsRephoto  bool    `json:"isRephoto"`
-	IsAiImage  bool    `json:"isAiImage"`
+	FaceOK    bool    `json:"faceOk"`
+	FaceScore float64 `json:"faceScore"`
+	IsRephoto bool    `json:"isRephoto"`
+	IsAiImage bool    `json:"isAiImage"`
 }
 
 // GenerateParams mirrors frontend generation options.
 type GenerateParams struct {
-	Template       string  `json:"template"`
-	BgMode         string  `json:"bgMode"`
-	BgColor        string  `json:"bgColor"`
-	BgPreset       string  `json:"bgPreset"`
-	CustomWidth    float64 `json:"customWidth"`
-	CustomHeight   float64 `json:"customHeight"`
-	BeautyStrength float64 `json:"beautyStrength"`
-	EyeSharp       float64 `json:"eyeSharp"`
-	SkinBright     float64 `json:"skinBright"`
-	EnableMakeup   bool    `json:"enableMakeup"`
-	LipStrength    float64 `json:"lipStrength"`
-	RefineBrow     bool    `json:"refineBrow"`
-	BrowFill       float64 `json:"browFill"`
-	RefineHair     bool    `json:"refineHair"`
-	HairColorUniform float64 `json:"hairColorUniform"`
-	HairlineRepair float64 `json:"hairlineRepair"`
-	EnableCloth    bool    `json:"enableCloth"`
-	ClothType      string  `json:"clothType"`
-	ClothFit       float64 `json:"clothFit"`
-	EnableWatermark bool   `json:"enableWatermark"`
-	WatermarkText  string  `json:"watermarkText"`
-	WatermarkColor string  `json:"watermarkColor"`
-	WatermarkFontSize float64 `json:"watermarkFontSize"`
-	WatermarkOpacity  float64 `json:"watermarkOpacity"`
-	WatermarkAngle    float64 `json:"watermarkAngle"`
-	WatermarkSpacing  float64 `json:"watermarkSpacing"`
-	GenPrintLayout bool    `json:"genPrintLayout"`
-	PaperSize      string  `json:"paperSize"`
-	EnableTargetFileSize bool `json:"enableTargetFileSize"`
-	TargetFileSize int     `json:"targetFileSize"`
-	MaskFeather    float64 `json:"maskFeather"`
-	FaceRatio      float64 `json:"faceRatio"`
-	HeadTopDistance float64 `json:"headTopDistance"`
-	FaceDetectModel string `json:"faceDetectModel"`
-	MattingModel    string `json:"mattingModel"`
+	Template             string  `json:"template"`
+	BgMode               string  `json:"bgMode"`
+	BgColor              string  `json:"bgColor"`
+	BgPreset             string  `json:"bgPreset"`
+	CustomWidth          float64 `json:"customWidth"`
+	CustomHeight         float64 `json:"customHeight"`
+	BeautyStrength       float64 `json:"beautyStrength"`
+	EyeSharp             float64 `json:"eyeSharp"`
+	SkinBright           float64 `json:"skinBright"`
+	EnableMakeup         bool    `json:"enableMakeup"`
+	LipStrength          float64 `json:"lipStrength"`
+	RefineBrow           bool    `json:"refineBrow"`
+	BrowFill             float64 `json:"browFill"`
+	RefineHair           bool    `json:"refineHair"`
+	HairColorUniform     float64 `json:"hairColorUniform"`
+	HairlineRepair       float64 `json:"hairlineRepair"`
+	EnableCloth          bool    `json:"enableCloth"`
+	ClothType            string  `json:"clothType"`
+	ClothFit             float64 `json:"clothFit"`
+	EnableWatermark      bool    `json:"enableWatermark"`
+	WatermarkText        string  `json:"watermarkText"`
+	WatermarkColor       string  `json:"watermarkColor"`
+	WatermarkFontSize    float64 `json:"watermarkFontSize"`
+	WatermarkOpacity     float64 `json:"watermarkOpacity"`
+	WatermarkAngle       float64 `json:"watermarkAngle"`
+	WatermarkSpacing     float64 `json:"watermarkSpacing"`
+	GenPrintLayout       bool    `json:"genPrintLayout"`
+	PaperSize            string  `json:"paperSize"`
+	EnableTargetFileSize bool    `json:"enableTargetFileSize"`
+	TargetFileSize       int     `json:"targetFileSize"`
+	MaskFeather          float64 `json:"maskFeather"`
+	FaceRatio            float64 `json:"faceRatio"`
+	HeadTopDistance      float64 `json:"headTopDistance"`
+	FaceDetectModel      string  `json:"faceDetectModel"`
+	MattingModel         string  `json:"mattingModel"`
 	// SourceImg is the current origin photo as a data URL.
 	SourceImg string `json:"sourceImg"`
 }
@@ -57,12 +57,23 @@ type ResultBundle struct {
 	IDPhoto string `json:"idphoto"`
 }
 
+// FaceCheckResult is the YuNet gate before a photo enters preview.
+// Landmarks are five points: right eye, left eye, nose, right mouth, left mouth.
+type FaceCheckResult struct {
+	OK        bool      `json:"ok"`
+	Reason    string    `json:"reason"`
+	ImgBase64 string    `json:"imgBase64"`
+	FaceBox   []float64 `json:"faceBox"`
+	Landmarks []float64 `json:"landmarks"`
+	Score     float64   `json:"score"`
+}
+
 // LoadImageResult is returned after loading a source photo.
 type LoadImageResult struct {
-	ImgBase64  string    `json:"imgBase64"`
-	FaceBox    []float64 `json:"faceBox"`
-	Landmarks  []float64 `json:"landmarks"`
-	Report     Report    `json:"report"`
+	ImgBase64 string    `json:"imgBase64"`
+	FaceBox   []float64 `json:"faceBox"`
+	Landmarks []float64 `json:"landmarks"`
+	Report    Report    `json:"report"`
 }
 
 // GenerateResult is returned after finishing an ID photo job.
