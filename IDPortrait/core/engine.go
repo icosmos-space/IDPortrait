@@ -112,67 +112,63 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 		return nil, err
 	}
 
+	bundle, err := makeIDPhoto(toNRGBA(src), p)
+	if err != nil {
+		return nil, err
+	}
 	bg := parseHex(p.BgColor, color.RGBA{R: 255, G: 255, B: 255, A: 255})
 	mode := p.BgMode
 	if mode == "" {
 		mode = "solid"
 	}
+	std := compositeOn(bundle.std, bg, mode)
+	hd := compositeOn(bundle.hd, bg, mode)
+	paperW, paperH := paperPixels(p.PaperSize)
+	layout := layoutSheet(std, paperW, paperH)
+	social := squareSocial(std, bg, mode)
 
-	idphotoImg := composeCover(src, 295, 413, bg, mode)
-	singleImg := composeCover(src, 360, 480, bg, mode)
-	socialImg := composeCover(src, 400, 400, bg, mode)
-	layoutImg := composeLayout(idphotoImg, 600, 400)
+	var idphoto string
+	if p.EnableTargetFileSize && p.TargetFileSize > 0 {
+		idphoto, err = encodeJPEGLimited(std, p.TargetFileSize)
+	} else {
+		idphoto, err = encodeJPEGDataURL(std, 92)
+	}
+	if err != nil {
+		return nil, err
+	}
+	single, err := encodeJPEGDataURL(hd, 90)
+	if err != nil {
+		return nil, err
+	}
+	socialURL, err := encodeJPEGDataURL(social, 90)
+	if err != nil {
+		return nil, err
+	}
+	layoutURL, err := encodeJPEGDataURL(layout, 88)
+	if err != nil {
+		return nil, err
+	}
+	matting, err := encodePNGDataURL(bundle.matting)
+	if err != nil {
+		return nil, err
+	}
 
-	idphoto, err := encodeJPEGDataURL(idphotoImg, 90)
-	if err != nil {
-		return nil, err
-	}
-	single, err := encodeJPEGDataURL(singleImg, 90)
-	if err != nil {
-		return nil, err
-	}
-	social, err := encodeJPEGDataURL(socialImg, 90)
-	if err != nil {
-		return nil, err
-	}
-	layout, err := encodeJPEGDataURL(layoutImg, 88)
-	if err != nil {
-		return nil, err
-	}
-	matting, err := encodePNGDataURL(composeMatting(src))
-	if err != nil {
-		return nil, err
-	}
-
-	w := src.Bounds().Dx()
-	h := src.Bounds().Dy()
-
+	face := bundle.face
 	return &GenerateResult{
 		OriginImg:  originURL,
 		MattingImg: matting,
 		ResultImg:  idphoto,
 		Results: ResultBundle{
 			Single:  single,
-			Layout:  layout,
-			Social:  social,
+			Layout:  layoutURL,
+			Social:  socialURL,
 			IDPhoto: idphoto,
 		},
-		FaceBox: []float64{
-			float64(w) * 0.25,
-			float64(h) * 0.16,
-			float64(w) * 0.75,
-			float64(h) * 0.72,
-		},
-		Landmarks: []float64{
-			float64(w) * 0.38, float64(h) * 0.36,
-			float64(w) * 0.62, float64(h) * 0.36,
-			float64(w) * 0.50, float64(h) * 0.48,
-			float64(w) * 0.40, float64(h) * 0.58,
-			float64(w) * 0.60, float64(h) * 0.58,
-		},
+		FaceBox:   []float64{face.x, face.y, face.x + face.w, face.y + face.h},
+		Landmarks: append([]float64(nil), face.kps[:]...),
 		Report: Report{
 			FaceOK:    true,
-			FaceScore: 0.94,
+			FaceScore: face.score,
 		},
 	}, nil
 }

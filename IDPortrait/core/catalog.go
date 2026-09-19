@@ -120,29 +120,25 @@ type ModelCatalog struct {
 }
 
 const (
-	DefaultFaceDetectModelID = "retinaface"
-	DefaultMattingModelID    = "modnet"
+	DefaultFaceDetectModelID = "yunet"
+	DefaultMattingModelID    = "hivision_modnet"
 )
 
-// BuiltinFaceDetectModels returns available face detection models.
+// BuiltinFaceDetectModels returns face detectors that have local weights.
 func BuiltinFaceDetectModels() []ModelOption {
 	return []ModelOption{
+		{Value: "yunet", Title: "YuNet", Desc: "轻量人脸框与五点", Keywords: "yunet 人脸检测"},
 		{Value: "retinaface", Title: "RetinaFace", Desc: "高精度人脸框与五点", Keywords: "retinaface 人脸检测"},
-		{Value: "scrfd", Title: "SCRFD", Desc: "轻量快速，适合实时", Keywords: "scrfd 轻量"},
-		{Value: "yolov8_face", Title: "YOLOv8-Face", Desc: "通用目标检测风格", Keywords: "yolo yolov8"},
-		{Value: "mediapipe", Title: "MediaPipe", Desc: "移动端友好", Keywords: "mediapipe google"},
-		{Value: "insightface", Title: "InsightFace", Desc: "检测+关键点一体化", Keywords: "insightface 关键点"},
 	}
 }
 
-// BuiltinMattingModels returns available matting / cutout models.
+// BuiltinMattingModels returns matting models shipped with the app.
 func BuiltinMattingModels() []ModelOption {
 	return []ModelOption{
-		{Value: "modnet", Title: "MODNet", Desc: "人像抠图，边缘自然", Keywords: "modnet 抠图"},
-		{Value: "u2net", Title: "U²-Net", Desc: "通用显著物体分割", Keywords: "u2net rembg"},
-		{Value: "birefnet", Title: "BiRefNet", Desc: "高细节抠图", Keywords: "birefnet 精细"},
-		{Value: "isnet", Title: "ISNet", Desc: "人像分割增强", Keywords: "isnet"},
-		{Value: "rmbg", Title: "RMBG", Desc: "背景移除专用", Keywords: "rmbg 去背景"},
+		{Value: "hivision_modnet", Title: "Hivision MODNet", Desc: "证件照换底更稳", Keywords: "hivision modnet 抠图"},
+		{Value: "modnet", Title: "MODNet", Desc: "官方人像抠图", Keywords: "modnet 抠图"},
+		{Value: "rmbg", Title: "RMBG 1.4", Desc: "通用背景移除", Keywords: "rmbg 去背景"},
+		{Value: "birefnet", Title: "BiRefNet", Desc: "高细节抠图，更慢", Keywords: "birefnet 精细"},
 	}
 }
 

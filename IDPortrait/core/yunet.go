@@ -563,3 +563,12 @@ func copy4(dst *image.NRGBA, dx, dy int, src *image.NRGBA, sx, sy int) {
 	si := src.PixOffset(sx, sy)
 	copy(dst.Pix[di:di+4], src.Pix[si:si+4])
 }
+
+// detectFaces runs YuNet once on an already upright photo.
+func detectFaces(img image.Image) ([]faceHit, error) {
+	det, err := yunet()
+	if err != nil {
+		return nil, err
+	}
+	return det.infer(toNRGBA(img))
+}
