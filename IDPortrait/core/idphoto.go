@@ -105,12 +105,17 @@ func adjustIDPhoto(src *image.NRGBA, face faceHit, outW, outH int, faceRatio, to
 	if outH < 2 {
 		outH = 413
 	}
-	measure := 0.12 + (clampFloat(faceRatio, 0.45, 0.85)-0.45)/0.40*0.20
-	topMax := clampFloat(topDist, 0.02, 0.2)
-	topMin := topMax - 0.02
-	if topMin < 0.01 {
-		topMin = 0.01
+	measure := faceRatio
+	if measure <= 0 {
+		measure = 0.2
 	}
+	measure = clampFloat(measure, 0.1, 0.5)
+	topMax := topDist
+	if topMax <= 0 {
+		topMax = 0.12
+	}
+	topMax = clampFloat(topMax, 0.02, 0.5)
+	topMin := topMax - 0.02
 
 	fw, fh := face.w, face.h
 	if fw < 2 {

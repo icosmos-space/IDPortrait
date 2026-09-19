@@ -1,6 +1,6 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
-import { RESULT_TABS, ORIGIN_TABS } from '../../constants/studio'
+import { computed, ref, watch, onMounted } from 'vue'
+import { RESULT_TABS, ORIGIN_TABS, SOCIAL_OPTIONS } from '../../constants/studio'
 
 const props = defineProps({
   originView: { type: Object, default: null },
@@ -23,6 +23,10 @@ const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab'])
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
+const socialSelectOptions = SOCIAL_OPTIONS.map((item) => ({ label: item.label, value: item.key }))
+const socialValue = computed(() => (
+  SOCIAL_OPTIONS.some((item) => item.key === props.activeResultTab) ? props.activeResultTab : null
+))
 
 function paintPlaceholder(canvas, title, subtitle) {
   if (!canvas) return
@@ -185,7 +189,7 @@ function drawResult(imgData) {
   const canvas = resultCanvas.value
   if (!canvas) return
   if (!imgData) {
-    const tab = props.resultTabs.find((t) => t.key === props.activeResultTab)
+    const tab = [...props.resultTabs, ...SOCIAL_OPTIONS].find((t) => t.key === props.activeResultTab)
     paintPlaceholder(canvas, tab?.label || '成品', props.hasResult ? '暂无该类型成品' : '生成后在此显示')
     return
   }
@@ -272,19 +276,31 @@ watch(
             <span>成品</span>
             <em>{{ currentResultHint }}</em>
           </header>
-          <div class="result-tabs" role="tablist">
-            <button
-              v-for="tab in resultTabs"
-              :key="tab.key"
-              type="button"
-              role="tab"
-              class="result-tab"
-              :class="{ active: activeResultTab === tab.key }"
-              :aria-selected="activeResultTab === tab.key"
-              @click="emit('switch-result-tab', tab.key)"
-            >
-              {{ tab.label }}
-            </button>
+          <div class="result-switch">
+            <div class="result-tabs" role="tablist">
+              <button
+                v-for="tab in resultTabs"
+                :key="tab.key"
+                type="button"
+                role="tab"
+                class="result-tab"
+                :class="{ active: activeResultTab === tab.key }"
+                :aria-selected="activeResultTab === tab.key"
+                @click="emit('switch-result-tab', tab.key)"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+            <n-select
+              class="social-select"
+              :class="{ active: socialValue }"
+              size="small"
+              placeholder="社交照"
+              :value="socialValue"
+              :options="socialSelectOptions"
+              :consistent-menu-width="false"
+              @update:value="(value) => emit('switch-result-tab', value)"
+            />
           </div>
           <div class="frame-body">
             <canvas ref="resultCanvas" />

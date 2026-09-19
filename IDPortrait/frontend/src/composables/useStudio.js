@@ -3,6 +3,7 @@ import { useDialog, useMessage } from 'naive-ui'
 import { IDPhotoService } from '../services/idphoto'
 import {
   RESULT_TABS,
+  SOCIAL_OPTIONS,
   ORIGIN_TABS,
   BG_MODES,
   BG_PRESETS,
@@ -47,7 +48,8 @@ export function useStudio() {
   })
 
   const currentResultHint = computed(() => {
-    return resultTabs.find((t) => t.key === activeResultTab.value)?.hint || '成品预览'
+    const key = activeResultTab.value
+    return [...resultTabs, ...SOCIAL_OPTIONS].find((t) => t.key === key)?.hint || '成品预览'
   })
 
   const currentOriginHint = computed(() => {
