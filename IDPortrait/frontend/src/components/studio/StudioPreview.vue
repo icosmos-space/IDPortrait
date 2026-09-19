@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { RESULT_TABS, ORIGIN_TABS, SOCIAL_OPTIONS } from '../../constants/studio'
 
 const props = defineProps({
@@ -23,31 +23,62 @@ const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab'])
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
+let resizeObserver = null
 const socialSelectOptions = SOCIAL_OPTIONS.map((item) => ({ label: item.label, value: item.key }))
 const socialValue = computed(() => (
   SOCIAL_OPTIONS.some((item) => item.key === props.activeResultTab) ? props.activeResultTab : null
 ))
 
+function boxSize(canvas) {
+  const box = canvas.parentElement
+  if (!box) return { w: 360, h: 480 }
+  const style = getComputedStyle(box)
+  const padX = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0)
+  const padY = (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0)
+  const w = Math.floor(box.clientWidth - padX)
+  const h = Math.floor(box.clientHeight - padY)
+  if (w < 8 || h < 8) return { w: 360, h: 480 }
+  return { w, h }
+}
+
+function fitImage(imgW, imgH, maxW, maxH) {
+  const scale = Math.min(maxW / imgW, maxH / imgH)
+  return {
+    w: Math.max(1, Math.round(imgW * scale)),
+    h: Math.max(1, Math.round(imgH * scale)),
+  }
+}
+
+function prepareCanvas(canvas, cssW, cssH) {
+  const dpr = window.devicePixelRatio || 1
+  canvas.width = Math.max(1, Math.round(cssW * dpr))
+  canvas.height = Math.max(1, Math.round(cssH * dpr))
+  canvas.style.width = `${cssW}px`
+  canvas.style.height = `${cssH}px`
+  const ctx = canvas.getContext('2d')
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  return ctx
+}
+
 function paintPlaceholder(canvas, title, subtitle) {
   if (!canvas) return
-  canvas.width = 360
-  canvas.height = 480
-  const ctx = canvas.getContext('2d')
-  const g = ctx.createLinearGradient(0, 0, 0, canvas.height)
+  const { w, h } = boxSize(canvas)
+  const ctx = prepareCanvas(canvas, w, h)
+  const g = ctx.createLinearGradient(0, 0, 0, h)
   g.addColorStop(0, '#f7f9fb')
   g.addColorStop(1, '#e8eef3')
   ctx.fillStyle = g
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.fillRect(0, 0, w, h)
   ctx.strokeStyle = 'rgba(24,32,40,0.08)'
   ctx.lineWidth = 1
-  ctx.strokeRect(0.5, 0.5, canvas.width - 1, canvas.height - 1)
+  ctx.strokeRect(0.5, 0.5, w - 1, h - 1)
   ctx.fillStyle = '#8b97a3'
   ctx.font = '600 15px Nunito, sans-serif'
   ctx.textAlign = 'center'
-  ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 8)
+  ctx.fillText(title, w / 2, h / 2 - 8)
   ctx.font = '13px Nunito, sans-serif'
   ctx.fillStyle = '#a3adb8'
-  ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 16)
+  ctx.fillText(subtitle, w / 2, h / 2 + 16)
 }
 
 function pointAt(landmarks, index) {
@@ -142,16 +173,13 @@ function drawOriginSide() {
       )
       return
     }
-    const ctx = canvas.getContext('2d')
     const img = new Image()
     img.onload = () => {
-      const maxW = 360
-      const maxH = 480
-      const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-      canvas.width = Math.max(1, Math.round(img.width * scale))
-      canvas.height = Math.max(1, Math.round(img.height * scale))
-      paintCheckerboard(ctx, canvas.width, canvas.height)
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const box = boxSize(canvas)
+      const fitted = fitImage(img.width, img.height, box.w, box.h)
+      const ctx = prepareCanvas(canvas, fitted.w, fitted.h)
+      paintCheckerboard(ctx, fitted.w, fitted.h)
+      ctx.drawImage(img, 0, 0, fitted.w, fitted.h)
     }
     img.onerror = () => {
       paintPlaceholder(canvas, '抠图加载失败', '请重新生成')
@@ -165,18 +193,15 @@ function drawOriginSide() {
     paintPlaceholder(canvas, '等待原图', '打开或拖入照片')
     return
   }
-  const ctx = canvas.getContext('2d')
   const img = new Image()
   img.onload = () => {
-    const maxW = 360
-    const maxH = 480
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-    canvas.width = Math.max(1, Math.round(img.width * scale))
-    canvas.height = Math.max(1, Math.round(img.height * scale))
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-    const sx = canvas.width / img.width
-    const sy = canvas.height / img.height
+    const box = boxSize(canvas)
+    const fitted = fitImage(img.width, img.height, box.w, box.h)
+    const ctx = prepareCanvas(canvas, fitted.w, fitted.h)
+    ctx.clearRect(0, 0, fitted.w, fitted.h)
+    ctx.drawImage(img, 0, 0, fitted.w, fitted.h)
+    const sx = fitted.w / img.width
+    const sy = fitted.h / img.height
     drawFiveKeypoints(ctx, view.landmarks, sx, sy)
   }
   img.onerror = () => {
@@ -193,16 +218,13 @@ function drawResult(imgData) {
     paintPlaceholder(canvas, tab?.label || '成品', props.hasResult ? '暂无该类型成品' : '生成后在此显示')
     return
   }
-  const ctx = canvas.getContext('2d')
   const img = new Image()
   img.onload = () => {
-    const maxW = 360
-    const maxH = 480
-    const scale = Math.min(maxW / img.width, maxH / img.height, 1)
-    canvas.width = Math.max(1, Math.round(img.width * scale))
-    canvas.height = Math.max(1, Math.round(img.height * scale))
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+    const box = boxSize(canvas)
+    const fitted = fitImage(img.width, img.height, box.w, box.h)
+    const ctx = prepareCanvas(canvas, fitted.w, fitted.h)
+    ctx.clearRect(0, 0, fitted.w, fitted.h)
+    ctx.drawImage(img, 0, 0, fitted.w, fitted.h)
   }
   img.src = imgData
 }
@@ -210,6 +232,17 @@ function drawResult(imgData) {
 onMounted(() => {
   drawOriginSide()
   drawResult(props.resultView)
+  const observer = new ResizeObserver(() => {
+    drawOriginSide()
+    drawResult(props.resultView)
+  })
+  if (originCanvas.value?.parentElement) observer.observe(originCanvas.value.parentElement)
+  if (resultCanvas.value?.parentElement) observer.observe(resultCanvas.value.parentElement)
+  resizeObserver = observer
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
 })
 
 watch(
