@@ -31,6 +31,9 @@ const {
   resultSet,
   currentResultHint,
   currentOriginHint,
+  activeSocial,
+  socialView,
+  socialHint,
   params,
   bgModes,
   clothOptions,
@@ -78,6 +81,7 @@ const {
   applyCustomSpec,
   selectSpecCategory,
   switchResultTab,
+  switchSocial,
   switchOriginTab,
   openExportModal,
   openPrintModal,
@@ -143,11 +147,15 @@ const {
       :result-tabs="resultTabs"
       :current-origin-hint="currentOriginHint"
       :current-result-hint="currentResultHint"
+      :social-view="socialView"
+      :active-social="activeSocial"
+      :social-hint="socialHint"
       :diagnostics="diagnostics"
       :beauty-strength="params.beautyStrength"
       @drop="handleDrop"
       @switch-origin-tab="switchOriginTab"
       @switch-result-tab="switchResultTab"
+      @switch-social="switchSocial"
     />
 
     <StudioRightRail

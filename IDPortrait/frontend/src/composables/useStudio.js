@@ -48,8 +48,13 @@ export function useStudio() {
   })
 
   const currentResultHint = computed(() => {
-    const key = activeResultTab.value
-    return [...resultTabs, ...SOCIAL_OPTIONS].find((t) => t.key === key)?.hint || '成品预览'
+    return resultTabs.find((t) => t.key === activeResultTab.value)?.hint || '成品预览'
+  })
+
+  const activeSocial = ref('social')
+  const socialView = computed(() => resultSet[activeSocial.value] || '')
+  const socialHint = computed(() => {
+    return SOCIAL_OPTIONS.find((t) => t.key === activeSocial.value)?.hint || '社交照'
   })
 
   const currentOriginHint = computed(() => {
@@ -395,8 +400,13 @@ export function useStudio() {
   }
 
   function switchResultTab(key) {
+    if (!resultTabs.some((t) => t.key === key)) return
     activeResultTab.value = key
     if (hasResult.value) showActiveResult()
+  }
+
+  function switchSocial(key) {
+    if (SOCIAL_OPTIONS.some((t) => t.key === key)) activeSocial.value = key
   }
 
   function switchOriginTab(key) {
@@ -1054,6 +1064,9 @@ export function useStudio() {
     resultSet,
     currentResultHint,
     currentOriginHint,
+    activeSocial,
+    socialView,
+    socialHint,
     params,
     bgModes,
     clothOptions,
@@ -1106,6 +1119,7 @@ export function useStudio() {
     applyCustomSpec,
     selectSpecCategory,
     switchResultTab,
+    switchSocial,
     switchOriginTab,
     openExportModal,
     openPrintModal,

@@ -124,6 +124,9 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 	std := compositeOn(bundle.std, bg, mode)
 	hd := compositeOn(bundle.hd, bg, mode)
 	paperW, paperH := paperPixels(p.PaperSize)
+	if paperH > paperW {
+		paperW, paperH = paperH, paperW
+	}
 	layout := layoutSheet(std, paperW, paperH)
 	social, social2, err := socialTemplates(std)
 	if err != nil {

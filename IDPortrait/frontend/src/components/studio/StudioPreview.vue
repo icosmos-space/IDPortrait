@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { RESULT_TABS, ORIGIN_TABS, SOCIAL_OPTIONS } from '../../constants/studio'
 
 const props = defineProps({
@@ -15,19 +15,20 @@ const props = defineProps({
   resultTabs: { type: Array, default: () => RESULT_TABS },
   currentOriginHint: { type: String, default: '人脸检测' },
   currentResultHint: { type: String, default: '成品预览' },
+  socialView: { type: String, default: '' },
+  activeSocial: { type: String, default: 'social' },
+  socialHint: { type: String, default: '倾斜相框' },
   diagnostics: { type: Array, default: () => [] },
   beautyStrength: { type: Number, default: 0 },
 })
 
-const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab'])
+const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab', 'switch-social'])
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
+const socialCanvas = ref(null)
 let resizeObserver = null
 const socialSelectOptions = SOCIAL_OPTIONS.map((item) => ({ label: item.label, value: item.key }))
-const socialValue = computed(() => (
-  SOCIAL_OPTIONS.some((item) => item.key === props.activeResultTab) ? props.activeResultTab : null
-))
 
 function boxSize(canvas) {
   const box = canvas.parentElement
@@ -210,12 +211,10 @@ function drawOriginSide() {
   img.src = view.img
 }
 
-function drawResult(imgData) {
-  const canvas = resultCanvas.value
+function drawFitted(canvas, imgData, emptyTitle, emptySub) {
   if (!canvas) return
   if (!imgData) {
-    const tab = [...props.resultTabs, ...SOCIAL_OPTIONS].find((t) => t.key === props.activeResultTab)
-    paintPlaceholder(canvas, tab?.label || '成品', props.hasResult ? '暂无该类型成品' : '生成后在此显示')
+    paintPlaceholder(canvas, emptyTitle, emptySub)
     return
   }
   const img = new Image()
@@ -229,15 +228,33 @@ function drawResult(imgData) {
   img.src = imgData
 }
 
+function drawResult(imgData) {
+  const tab = props.resultTabs.find((t) => t.key === props.activeResultTab)
+  drawFitted(
+    resultCanvas.value,
+    imgData,
+    tab?.label || '成品',
+    props.hasResult ? '暂无该类型成品' : '生成后在此显示',
+  )
+}
+
+function drawSocial(imgData) {
+  const tab = SOCIAL_OPTIONS.find((t) => t.key === props.activeSocial)
+  drawFitted(socialCanvas.value, imgData, tab?.label || '社交照', '生成后在此显示')
+}
+
 onMounted(() => {
   drawOriginSide()
   drawResult(props.resultView)
+  drawSocial(props.socialView)
   const observer = new ResizeObserver(() => {
     drawOriginSide()
     drawResult(props.resultView)
+    drawSocial(props.socialView)
   })
   if (originCanvas.value?.parentElement) observer.observe(originCanvas.value.parentElement)
   if (resultCanvas.value?.parentElement) observer.observe(resultCanvas.value.parentElement)
+  if (socialCanvas.value?.parentElement) observer.observe(socialCanvas.value.parentElement)
   resizeObserver = observer
 })
 
@@ -254,6 +271,11 @@ watch(
 watch(
   () => [props.resultView, props.activeResultTab, props.hasResult],
   () => drawResult(props.resultView),
+)
+
+watch(
+  () => [props.socialView, props.activeSocial],
+  () => drawSocial(props.socialView),
 )
 </script>
 
@@ -305,39 +327,49 @@ watch(
         </div>
 
         <article class="frame result">
-          <header class="frame-head">
-            <span>成品</span>
-            <em>{{ currentResultHint }}</em>
-          </header>
-          <div class="result-switch">
-            <div class="result-tabs" role="tablist">
-              <button
-                v-for="tab in resultTabs"
-                :key="tab.key"
-                type="button"
-                role="tab"
-                class="result-tab"
-                :class="{ active: activeResultTab === tab.key }"
-                :aria-selected="activeResultTab === tab.key"
-                @click="emit('switch-result-tab', tab.key)"
-              >
-                {{ tab.label }}
-              </button>
-            </div>
-            <n-select
-              class="social-select"
-              :class="{ active: socialValue }"
-              size="small"
-              placeholder="社交照"
-              :value="socialValue"
-              :options="socialSelectOptions"
-              :consistent-menu-width="false"
-              @update:value="(value) => emit('switch-result-tab', value)"
-            />
-          </div>
-          <div class="frame-body">
-            <canvas ref="resultCanvas" />
-            <p v-if="!hasResult" class="frame-hint">生成完成后可切换查看各类成品</p>
+          <div class="result-stack">
+            <section class="result-pane">
+              <header class="frame-head">
+                <span>成品</span>
+                <em>{{ currentResultHint }}</em>
+              </header>
+              <div class="result-tabs" role="tablist">
+                <button
+                  v-for="tab in resultTabs"
+                  :key="tab.key"
+                  type="button"
+                  role="tab"
+                  class="result-tab"
+                  :class="{ active: activeResultTab === tab.key }"
+                  :aria-selected="activeResultTab === tab.key"
+                  @click="emit('switch-result-tab', tab.key)"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+              <div class="frame-body">
+                <canvas ref="resultCanvas" />
+                <p v-if="!hasResult" class="frame-hint">生成完成后可切换查看各类成品</p>
+              </div>
+            </section>
+            <section class="result-pane">
+              <header class="frame-head">
+                <span>社交照</span>
+                <em>{{ socialHint }}</em>
+              </header>
+              <n-select
+                class="social-select"
+                size="small"
+                :value="activeSocial"
+                :options="socialSelectOptions"
+                :consistent-menu-width="false"
+                @update:value="(value) => emit('switch-social', value)"
+              />
+              <div class="frame-body">
+                <canvas ref="socialCanvas" />
+                <p v-if="!socialView" class="frame-hint">生成完成后可查看社交照</p>
+              </div>
+            </section>
           </div>
         </article>
       </div>
