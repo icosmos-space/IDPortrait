@@ -9,7 +9,7 @@ import (
 // IDPhotoService is the shared contract for Wails bindings and HTTP API.
 type IDPhotoService interface {
 	LoadImage(path string) (*core.LoadImageResult, error)
-	DetectFace(src string) (*core.FaceCheckResult, error)
+	DetectFace(src string, opts core.FaceCheckOptions) (*core.FaceCheckResult, error)
 	Generate(params core.GenerateParams) (*core.GenerateResult, error)
 	Export(dir string, opt core.ExportOptions) (*core.ExportResult, error)
 	Health() map[string]any
@@ -44,8 +44,8 @@ func (s *Service) LoadImage(path string) (*core.LoadImageResult, error) {
 	return s.engine.LoadImage(path)
 }
 
-func (s *Service) DetectFace(src string) (*core.FaceCheckResult, error) {
-	return core.DetectFace(src)
+func (s *Service) DetectFace(src string, opts core.FaceCheckOptions) (*core.FaceCheckResult, error) {
+	return core.DetectFace(src, opts)
 }
 
 func (s *Service) Generate(params core.GenerateParams) (*core.GenerateResult, error) {

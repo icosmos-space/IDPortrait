@@ -131,6 +131,10 @@ export function useStudio() {
     cacheDir: '',
     enableRephotoDetect: true,
     enableAiDetect: true,
+    checkPose: true,
+    checkBlur: true,
+    checkMosaic: true,
+    checkParse: true,
     remoteEnabled: false,
     remotePort: 8787,
     progressStyle: 'ghost',
@@ -279,7 +283,12 @@ export function useStudio() {
     processing.value = true
     progressPercent.value = 12
     try {
-      const person = normalizeFaceCheck(await IDPhotoService.DetectFace(dataUrl))
+      const person = normalizeFaceCheck(await IDPhotoService.DetectFace(dataUrl, {
+        checkPose: !!setting.checkPose,
+        checkBlur: !!setting.checkBlur,
+        checkMosaic: !!setting.checkMosaic,
+        checkParse: !!setting.checkParse,
+      }))
       progressPercent.value = person.ok ? 100 : 0
       return person
     } catch (e) {
@@ -582,6 +591,18 @@ export function useStudio() {
       setting.progressStyle = localStorage.getItem('idportrait.progressStyle') === 'card' ? 'card' : 'ghost'
     } catch {
       setting.progressStyle = 'ghost'
+    }
+    try {
+      const raw = localStorage.getItem('idportrait.facePrecheck')
+      if (raw) {
+        const saved = JSON.parse(raw)
+        if (typeof saved.checkPose === 'boolean') setting.checkPose = saved.checkPose
+        if (typeof saved.checkBlur === 'boolean') setting.checkBlur = saved.checkBlur
+        if (typeof saved.checkMosaic === 'boolean') setting.checkMosaic = saved.checkMosaic
+        if (typeof saved.checkParse === 'boolean') setting.checkParse = saved.checkParse
+      }
+    } catch {
+      // keep defaults
     }
     try {
       const { EventsOn } = await import('../../wailsjs/runtime/runtime')
@@ -1084,6 +1105,12 @@ export function useStudio() {
   function saveSetting() {
     try {
       localStorage.setItem('idportrait.progressStyle', setting.progressStyle === 'ghost' ? 'ghost' : 'card')
+      localStorage.setItem('idportrait.facePrecheck', JSON.stringify({
+        checkPose: !!setting.checkPose,
+        checkBlur: !!setting.checkBlur,
+        checkMosaic: !!setting.checkMosaic,
+        checkParse: !!setting.checkParse,
+      }))
     } catch {
       // ignore storage failures
     }

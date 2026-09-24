@@ -403,11 +403,17 @@ export const IDPhotoService = {
     }
   },
 
-  async DetectFace(image) {
-    const res = await tryGo('DetectFace', image)
+  async DetectFace(image, options = {}) {
+    const opts = {
+      checkPose: options.checkPose !== false,
+      checkBlur: options.checkBlur !== false,
+      checkMosaic: options.checkMosaic !== false,
+      checkParse: options.checkParse !== false,
+    }
+    const res = await tryGo('DetectFace', image, opts)
     if (res !== undefined) return res
     if (await detectHttpMode()) {
-      return apiJSON('/detect-face', { path: image })
+      return apiJSON('/detect-face', { path: image, options: opts })
     }
     throw new Error('人脸检测服务不可用')
   },

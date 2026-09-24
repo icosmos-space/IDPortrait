@@ -70,6 +70,25 @@ type FaceCheckResult struct {
 	Score     float64   `json:"score"`
 }
 
+// FaceCheckOptions toggles optional import prechecks (pose / blur / mosaic / occlusion).
+// Missing face or multiple faces are always rejected.
+type FaceCheckOptions struct {
+	CheckPose   bool `json:"checkPose"`
+	CheckBlur   bool `json:"checkBlur"`
+	CheckMosaic bool `json:"checkMosaic"`
+	CheckParse  bool `json:"checkParse"` // closed eyes / mask / sunglasses / hat
+}
+
+// DefaultFaceCheckOptions enables all optional quality gates.
+func DefaultFaceCheckOptions() FaceCheckOptions {
+	return FaceCheckOptions{
+		CheckPose:   true,
+		CheckBlur:   true,
+		CheckMosaic: true,
+		CheckParse:  true,
+	}
+}
+
 // LoadImageResult is returned after loading a source photo.
 type LoadImageResult struct {
 	ImgBase64 string    `json:"imgBase64"`

@@ -41,9 +41,9 @@ var (
 
 // DetectFace runs YuNet on a new photo before it enters preview.
 // Exactly one frontal face is accepted. Sideways photos are rotated upright.
-// Side face / looking down / looking up / blur / mosaic / closed eyes / occlusion are rejected.
+// Optional prechecks (pose / blur / mosaic / closed eyes / occlusion) follow opts.
 // The live camera viewfinder does not use this path.
-func DetectFace(src string) (*FaceCheckResult, error) {
+func DetectFace(src string, opts FaceCheckOptions) (*FaceCheckResult, error) {
 	src = strings.TrimSpace(src)
 	if src == "" {
 		return nil, fmt.Errorf("empty image")
@@ -110,14 +110,20 @@ func DetectFace(src string) (*FaceCheckResult, error) {
 			score: best.Score,
 		}
 		copy(poseHit.kps[:], best.Landmarks)
-		if reason := facePoseReject(poseHit); reason != "" {
-			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+		if opts.CheckPose {
+			if reason := facePoseReject(poseHit); reason != "" {
+				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+			}
 		}
-		if reason := faceQualityReject(bestView, best.FaceBox); reason != "" {
-			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+		if opts.CheckBlur || opts.CheckMosaic {
+			if reason := faceQualityReject(bestView, best.FaceBox, opts.CheckBlur, opts.CheckMosaic); reason != "" {
+				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+			}
 		}
-		if reason := faceParseReject(bestView, best.FaceBox); reason != "" {
-			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+		if opts.CheckParse {
+			if reason := faceParseReject(bestView, best.FaceBox); reason != "" {
+				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+			}
 		}
 		return best, nil
 	}

@@ -11,7 +11,7 @@ func TestDetectFaceRejectsBlank(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	res, err := DetectFace(url)
+	res, err := DetectFace(url, DefaultFaceCheckOptions())
 	if err != nil {
 		t.Fatal(err)
 	}

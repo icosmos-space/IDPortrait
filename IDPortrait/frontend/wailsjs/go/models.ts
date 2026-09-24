@@ -32,6 +32,24 @@ export namespace core {
 	        this.dir = source["dir"];
 	    }
 	}
+	export class FaceCheckOptions {
+	    checkPose: boolean;
+	    checkBlur: boolean;
+	    checkMosaic: boolean;
+	    checkParse: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new FaceCheckOptions(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.checkPose = source["checkPose"];
+	        this.checkBlur = source["checkBlur"];
+	        this.checkMosaic = source["checkMosaic"];
+	        this.checkParse = source["checkParse"];
+	    }
+	}
 	export class FaceCheckResult {
 	    ok: boolean;
 	    reason: string;

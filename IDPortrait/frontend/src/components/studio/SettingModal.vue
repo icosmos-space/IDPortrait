@@ -30,6 +30,7 @@ const localPort = computed({
 
 const remoteUrl = computed(() => props.remoteStatus?.url || props.remoteStatus?.addr || '')
 const isRemoteRunning = computed(() => !!props.remoteStatus?.running)
+const precheckExpanded = ref([])
 
 watch(
   () => props.show,
@@ -82,11 +83,43 @@ function onRemoteSwitch(v) {
         <label>AI 图片预检</label>
         <n-switch v-model:value="setting.enableAiDetect" size="small" />
       </div>
-      <label class="modal-label">进度样式</label>
-      <n-radio-group v-model:value="setting.progressStyle" name="progress-style">
-        <n-radio value="card">白底卡片</n-radio>
-        <n-radio value="ghost">透明浮层</n-radio>
-      </n-radio-group>
+
+      <n-collapse
+        class="precheck-collapse"
+        display-directive="show"
+        :expanded-names="precheckExpanded"
+        @update:expanded-names="(names) => { precheckExpanded = names }"
+      >
+        <n-collapse-item title="导入人脸预检" name="precheck">
+          <p class="precheck-desc">关闭后仍会检测「是否有且仅有一张人脸」，但不再因姿态/画质/遮挡拒绝图片。</p>
+          <div class="field switch-row">
+            <label>侧脸 / 抬头低头</label>
+            <n-switch v-model:value="setting.checkPose" size="small" />
+          </div>
+          <div class="field switch-row">
+            <label>人脸模糊</label>
+            <n-switch v-model:value="setting.checkBlur" size="small" />
+          </div>
+          <div class="field switch-row">
+            <label>人脸马赛克</label>
+            <n-switch v-model:value="setting.checkMosaic" size="small" />
+          </div>
+          <div class="field switch-row">
+            <label>闭眼 / 遮挡</label>
+            <n-switch v-model:value="setting.checkParse" size="small" />
+          </div>
+        </n-collapse-item>
+      </n-collapse>
+
+      <div class="field switch-row progress-style-row">
+        <label>进度样式</label>
+        <n-radio-group v-model:value="setting.progressStyle" name="progress-style">
+          <n-space :size="16" :wrap="false">
+            <n-radio value="card">白底卡片</n-radio>
+            <n-radio value="ghost">透明浮层</n-radio>
+          </n-space>
+        </n-radio-group>
+      </div>
 
       <div class="remote-block">
         <div class="remote-title">远程服务</div>
@@ -131,6 +164,22 @@ function onRemoteSwitch(v) {
 </template>
 
 <style scoped>
+.precheck-collapse {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
+}
+.precheck-desc {
+  margin: 0 0 10px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+.progress-style-row :deep(.n-radio-group) {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
 .remote-block {
   margin-top: 8px;
   padding-top: 14px;

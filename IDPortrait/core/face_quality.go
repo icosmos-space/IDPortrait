@@ -7,8 +7,11 @@ import (
 
 // faceQualityReject inspects the face crop for Gaussian-like blur and mosaic
 // (pixelation). Empty string means the face looks sharp enough for an ID photo.
-func faceQualityReject(img *image.NRGBA, box []float64) string {
+func faceQualityReject(img *image.NRGBA, box []float64, checkBlur, checkMosaic bool) string {
 	if img == nil || len(box) < 4 {
+		return ""
+	}
+	if !checkBlur && !checkMosaic {
 		return ""
 	}
 	crop := cropFaceGray(img, box[0], box[1], box[2], box[3], 0.18)
@@ -18,20 +21,24 @@ func faceQualityReject(img *image.NRGBA, box []float64) string {
 
 	// Mosaic check must NOT upscale: printed ID-card portraits are small and
 	// look blocky after enlargement, which falsely trips pixelation detectors.
-	mosaicSrc := crop
-	if crop.w > 192 || crop.h > 192 {
-		mosaicSrc = resizeGrayCropMax(crop, 192)
-	}
-	if isMosaicFace(mosaicSrc) {
-		return "检测到人脸马赛克，已拒绝"
+	if checkMosaic {
+		mosaicSrc := crop
+		if crop.w > 192 || crop.h > 192 {
+			mosaicSrc = resizeGrayCropMax(crop, 192)
+		}
+		if isMosaicFace(mosaicSrc) {
+			return "检测到人脸马赛克，已拒绝"
+		}
 	}
 
-	norm := resizeGrayCrop(crop, 160)
-	sharp := laplacianVariance(norm)
-	// Printed ID-card portraits are softer than digital captures; 90 was
-	// rejecting them. Intentional heavy blur still lands well below 70.
-	if sharp < 70 {
-		return "检测到人脸模糊，已拒绝"
+	if checkBlur {
+		norm := resizeGrayCrop(crop, 160)
+		sharp := laplacianVariance(norm)
+		// Printed ID-card portraits are softer than digital captures; 90 was
+		// rejecting them. Intentional heavy blur still lands well below 70.
+		if sharp < 70 {
+			return "检测到人脸模糊，已拒绝"
+		}
 	}
 	return ""
 }

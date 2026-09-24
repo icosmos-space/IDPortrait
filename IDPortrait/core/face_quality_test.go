@@ -12,10 +12,10 @@ func TestFaceQualityRejectsBlur(t *testing.T) {
 	sharp := synthFaceTexture(160, false, 0)
 	blur := boxBlurNRGBA(sharp, 10)
 	box := []float64{20, 20, 140, 140}
-	if reason := faceQualityReject(sharp, box); reason != "" {
+	if reason := faceQualityReject(sharp, box, true, true); reason != "" {
 		t.Fatalf("sharp should pass, got %q", reason)
 	}
-	reason := faceQualityReject(blur, box)
+	reason := faceQualityReject(blur, box, true, true)
 	if !strings.Contains(reason, "模糊") {
 		t.Fatalf("blur should reject, got %q (sharp=%v blur=%v)", reason, mustSharp(sharp), mustSharp(blur))
 	}
@@ -25,10 +25,13 @@ func TestFaceQualityRejectsMosaic(t *testing.T) {
 	sharp := synthFaceTexture(160, false, 0)
 	mosaic := pixelateNRGBA(sharp, 12)
 	box := []float64{20, 20, 140, 140}
-	reason := faceQualityReject(mosaic, box)
+	reason := faceQualityReject(mosaic, box, true, true)
 	if !strings.Contains(reason, "马赛克") && !strings.Contains(reason, "模糊") {
 		fit, jump := mustMosaic(mosaic)
 		t.Fatalf("mosaic should reject, got %q (sharp=%v fit=%v jump=%v)", reason, mustSharp(mosaic), fit, jump)
+	}
+	if reason := faceQualityReject(mosaic, box, false, false); reason != "" {
+		t.Fatalf("disabled checks should pass, got %q", reason)
 	}
 }
 

@@ -229,8 +229,13 @@ func (s *Server) handleLoadImage(c echo.Context) error {
 }
 
 type detectFaceReq struct {
-	Path  string `json:"path"`
-	Image string `json:"image"`
+	Path        string               `json:"path"`
+	Image       string               `json:"image"`
+	CheckPose   *bool                `json:"checkPose"`
+	CheckBlur   *bool                `json:"checkBlur"`
+	CheckMosaic *bool                `json:"checkMosaic"`
+	CheckParse  *bool                `json:"checkParse"`
+	Options     *core.FaceCheckOptions `json:"options"`
 }
 
 func (s *Server) handleDetectFace(c echo.Context) error {
@@ -242,7 +247,24 @@ func (s *Server) handleDetectFace(c echo.Context) error {
 	if src == "" {
 		src = strings.TrimSpace(req.Image)
 	}
-	res, err := s.svc.DetectFace(src)
+	opts := core.DefaultFaceCheckOptions()
+	if req.Options != nil {
+		opts = *req.Options
+	} else {
+		if req.CheckPose != nil {
+			opts.CheckPose = *req.CheckPose
+		}
+		if req.CheckBlur != nil {
+			opts.CheckBlur = *req.CheckBlur
+		}
+		if req.CheckMosaic != nil {
+			opts.CheckMosaic = *req.CheckMosaic
+		}
+		if req.CheckParse != nil {
+			opts.CheckParse = *req.CheckParse
+		}
+	}
+	res, err := s.svc.DetectFace(src, opts)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
