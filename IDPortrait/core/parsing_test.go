@@ -160,24 +160,22 @@ func TestJudgeParseRejectsHat(t *testing.T) {
 
 func TestJudgeParseRejectsCapLabeledAsHair(t *testing.T) {
 	labels := synthParseMap(func(x, y, side int) uint8 {
-		// Brim mislabeled as hair: no skin in top band, dense hair cover.
-		if y < side*28/100 {
+		// Brim mislabeled as hair: cover through the forehead band, no skin
+		// until mid-face (eyes sit below the veiled strip).
+		if y < side*40/100 {
 			return parseHair
 		}
-		if y > side/4 && y < side/3 {
+		if y > side*40/100 && y < side*48/100 {
 			if x < side/2 {
 				return parseLEye
 			}
 			return parseREye
 		}
-		if y > side/3 && y < side/2 && x > side*2/5 && x < side*3/5 {
+		if y > side*48/100 && y < side*58/100 && x > side*2/5 && x < side*3/5 {
 			return parseNose
 		}
-		if y > side*3/5 && y < side*3/4 {
+		if y > side*62/100 && y < side*72/100 {
 			return parseULip
-		}
-		if y >= side*28/100 && y <= side*55/100 {
-			return parseSkin
 		}
 		return parseSkin
 	})

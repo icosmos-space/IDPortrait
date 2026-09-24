@@ -582,7 +582,8 @@ func hatOcclusionReason(labels []uint8, hat, hair int, fc float64) string {
 		return "检测到帽子遮挡，已拒绝"
 	}
 	// Cap brim mislabeled as hair: dense top cover, almost no hat labels.
-	if topCapLikeCover(labels) && topHair >= 0.55 && topHat < 0.08 {
+	// High buns + bangs also pack the crown; require a hard forehead veil.
+	if topCapLikeCover(labels) && topHair >= 0.68 && topHat < 0.05 {
 		return "检测到帽子遮挡，已拒绝"
 	}
 	return ""
@@ -619,15 +620,25 @@ func topHatRatio(labels []uint8) float64 {
 // topCapLikeCover detects a hard forehead cover (cap) when BiSeNet labels the
 // brim as hair: upper band almost no skin, mostly hair/hat/bg, while the
 // mid-face still shows a normal skin mass.
+//
+// Tall hair (volume / high bun) packs the padded crown like a cap. Real brims
+// also veil the forehead strip; bangs and open hairlines leave skin there,
+// especially in the lower forehead just above the brows.
 func topCapLikeCover(labels []uint8) bool {
 	side := parseSide(labels)
 	if side < 8 {
 		return false
 	}
 	yTop := side * 28 / 100
-	yMid0 := side * 30 / 100
-	yMid1 := side * 55 / 100
+	yFore0 := side * 28 / 100
+	yFore1 := side * 40 / 100
+	yLowFore0 := side * 34 / 100
+	yLowFore1 := side * 40 / 100
+	yMid0 := side * 40 / 100
+	yMid1 := side * 58 / 100
 	topSkin, topHairHat, topTotal := 0, 0, 0
+	foreSkin, foreTotal := 0, 0
+	lowForeSkin, lowForeTotal := 0, 0
 	midSkin, midTotal := 0, 0
 	for y := 0; y < yTop; y++ {
 		row := y * side
@@ -641,6 +652,24 @@ func topCapLikeCover(labels []uint8) bool {
 			}
 		}
 	}
+	for y := yFore0; y < yFore1; y++ {
+		row := y * side
+		for x := 0; x < side; x++ {
+			foreTotal++
+			if labels[row+x] == parseSkin {
+				foreSkin++
+			}
+		}
+	}
+	for y := yLowFore0; y < yLowFore1; y++ {
+		row := y * side
+		for x := 0; x < side; x++ {
+			lowForeTotal++
+			if labels[row+x] == parseSkin {
+				lowForeSkin++
+			}
+		}
+	}
 	for y := yMid0; y < yMid1; y++ {
 		row := y * side
 		for x := 0; x < side; x++ {
@@ -650,14 +679,21 @@ func topCapLikeCover(labels []uint8) bool {
 			}
 		}
 	}
-	if topTotal < 1 || midTotal < 1 {
+	if topTotal < 1 || foreTotal < 1 || lowForeTotal < 1 || midTotal < 1 {
 		return false
 	}
 	topSkinR := float64(topSkin) / float64(topTotal)
 	topCoverR := float64(topHairHat) / float64(topTotal)
+	foreSkinR := float64(foreSkin) / float64(foreTotal)
+	lowForeSkinR := float64(lowForeSkin) / float64(lowForeTotal)
 	midSkinR := float64(midSkin) / float64(midTotal)
-	// Stricter than early bangs false-positives: need a hard slab of cover.
-	return midSkinR > 0.22 && topSkinR < 0.025 && topCoverR > 0.62
+	// Brim: dense crown + forehead still veiled down to the brow line.
+	// Bangs / high bun: lower forehead still shows skin speckles.
+	return midSkinR > 0.22 &&
+		topSkinR < 0.015 &&
+		topCoverR > 0.78 &&
+		foreSkinR < 0.06 &&
+		lowForeSkinR < 0.05
 }
 
 func parseSide(labels []uint8) int {

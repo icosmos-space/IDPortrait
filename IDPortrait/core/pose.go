@@ -139,11 +139,14 @@ func shoulderHorizontalExtents(img *image.NRGBA, faceCX, y0, y1, faceW float64) 
 	if !refOK {
 		return 0, 0, false
 	}
-	// Foreground is darker than a light/grey studio backdrop.
-	thresh := ref - 18
-	if thresh > ref*0.88 {
-		thresh = ref * 0.88
+	// Foreground: darker than backdrop (hair / dark clothes) OR clearly
+	// brighter (white / cream shirts on grey-tan studios). Side hair alone
+	// must not define the silhouette when the torso is a light shirt.
+	darkThresh := ref - 18
+	if darkThresh > ref*0.88 {
+		darkThresh = ref * 0.88
 	}
+	brightThresh := ref + 22
 
 	var sumL, sumR float64
 	nOK := 0
@@ -154,12 +157,15 @@ func shoulderHorizontalExtents(img *image.NRGBA, faceCX, y0, y1, faceW float64) 
 	if cx >= searchR {
 		cx = searchR - 1
 	}
+	isFG := func(luma float64) bool {
+		return luma < darkThresh || luma > brightThresh
+	}
 	for y := row0; y < row1; y++ {
 		leftEdge, rightEdge := -1, -1
 		for x := searchL; x <= cx; x++ {
 			i := img.PixOffset(x, y)
 			luma := 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
-			if luma < thresh {
+			if isFG(luma) {
 				leftEdge = x
 				break
 			}
@@ -167,7 +173,7 @@ func shoulderHorizontalExtents(img *image.NRGBA, faceCX, y0, y1, faceW float64) 
 		for x := searchR - 1; x >= cx; x-- {
 			i := img.PixOffset(x, y)
 			luma := 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
-			if luma < thresh {
+			if isFG(luma) {
 				rightEdge = x
 				break
 			}
