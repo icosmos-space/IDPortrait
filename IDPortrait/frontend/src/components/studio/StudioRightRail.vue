@@ -252,6 +252,11 @@ const emit = defineEmits(['update:expandedPanels'])
             style="width: 100%"
           />
         </div>
+        <div class="field switch-row">
+          <label>裁剪后 4× 扩图</label>
+          <n-switch v-model:value="params.enableUpscale" size="small" />
+        </div>
+        <p class="field-hint">开启后用 Upscayl standard-4x 锐化证件照裁剪结果（较慢，默认关）</p>
         <div class="field">
           <div class="field-row">
             <label>边缘羽化</label>

@@ -80,6 +80,7 @@ export function createDefaultParams() {
     headTopDistance: 0.12,
     faceDetectModel: '',
     mattingModel: '',
+    enableUpscale: false,
   }
 }
 

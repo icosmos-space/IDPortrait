@@ -31,6 +31,10 @@ go.work.sum
 *.onnx
 IDPortrait/core/testdata_*
 
+# Upscayl runtime (copy from Upscaler via scripts/sync-upscayl.ps1)
+IDPortrait/core/runtime/upscayl/bin/
+IDPortrait/core/runtime/upscayl/models/
+
 # Editor/IDE
 # .idea/
 # .vscode/

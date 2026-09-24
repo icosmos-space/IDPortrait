@@ -109,6 +109,7 @@ export namespace core {
 	    headTopDistance: number;
 	    faceDetectModel: string;
 	    mattingModel: string;
+	    enableUpscale: boolean;
 	    sourceImg: string;
 	
 	    static createFrom(source: any = {}) {
@@ -153,6 +154,7 @@ export namespace core {
 	        this.headTopDistance = source["headTopDistance"];
 	        this.faceDetectModel = source["faceDetectModel"];
 	        this.mattingModel = source["mattingModel"];
+	        this.enableUpscale = source["enableUpscale"];
 	        this.sourceImg = source["sourceImg"];
 	    }
 	}

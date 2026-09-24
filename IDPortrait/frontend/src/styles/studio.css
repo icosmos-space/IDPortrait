@@ -928,6 +928,13 @@
 
 .field { margin-bottom: 14px; }
 
+.field-hint {
+  margin: -8px 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ink-faint, #8b97a3);
+}
+
 .field > label,
 .field-row label,
 .modal-label {

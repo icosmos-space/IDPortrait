@@ -46,6 +46,7 @@ type GenerateParams struct {
 	HeadTopDistance      float64 `json:"headTopDistance"`
 	FaceDetectModel      string  `json:"faceDetectModel"`
 	MattingModel         string  `json:"mattingModel"`
+	EnableUpscale        bool    `json:"enableUpscale"`
 	// SourceImg is the current origin photo as a data URL.
 	SourceImg string `json:"sourceImg"`
 }

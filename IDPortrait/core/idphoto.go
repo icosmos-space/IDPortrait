@@ -58,7 +58,17 @@ func makeIDPhoto(src *image.NRGBA, p GenerateParams) (*idBundle, error) {
 
 	outW, outH := photoPixels(p)
 	std := adjustIDPhoto(cut, face, outW, outH, p.FaceRatio, p.HeadTopDistance)
-	hd := resizeByMin(std, max(600, outW))
+	var hd *image.NRGBA
+	if p.EnableUpscale {
+		sharp, err := upscalePortrait(std)
+		if err != nil {
+			return nil, fmt.Errorf("人像扩图失败: %w", err)
+		}
+		hd = resizeByMin(sharp, max(1200, outW*2))
+		std = resizeNRGBA(sharp, outW, outH)
+	} else {
+		hd = resizeByMin(std, max(600, outW))
+	}
 	return &idBundle{matting: cut, hd: hd, std: std, face: face}, nil
 }
 
