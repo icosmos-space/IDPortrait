@@ -110,17 +110,17 @@ func DetectFace(src string, opts FaceCheckOptions) (*FaceCheckResult, error) {
 			score: best.Score,
 		}
 		copy(poseHit.kps[:], best.Landmarks)
-		if opts.CheckPose {
+		if !opts.SkipPose {
 			if reason := facePoseReject(poseHit); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}
 		}
-		if opts.CheckBlur || opts.CheckMosaic {
-			if reason := faceQualityReject(bestView, best.FaceBox, opts.CheckBlur, opts.CheckMosaic); reason != "" {
+		if !opts.SkipBlur || !opts.SkipMosaic {
+			if reason := faceQualityReject(bestView, best.FaceBox, !opts.SkipBlur, !opts.SkipMosaic); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}
 		}
-		if opts.CheckParse {
+		if !opts.SkipParse {
 			if reason := faceParseReject(bestView, best.FaceBox); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}

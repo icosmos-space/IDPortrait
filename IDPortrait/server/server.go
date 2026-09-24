@@ -229,13 +229,13 @@ func (s *Server) handleLoadImage(c echo.Context) error {
 }
 
 type detectFaceReq struct {
-	Path        string               `json:"path"`
-	Image       string               `json:"image"`
-	CheckPose   *bool                `json:"checkPose"`
-	CheckBlur   *bool                `json:"checkBlur"`
-	CheckMosaic *bool                `json:"checkMosaic"`
-	CheckParse  *bool                `json:"checkParse"`
-	Options     *core.FaceCheckOptions `json:"options"`
+	Path       string                 `json:"path"`
+	Image      string                 `json:"image"`
+	SkipPose   *bool                  `json:"skipPose"`
+	SkipBlur   *bool                  `json:"skipBlur"`
+	SkipMosaic *bool                  `json:"skipMosaic"`
+	SkipParse  *bool                  `json:"skipParse"`
+	Options    *core.FaceCheckOptions `json:"options"`
 }
 
 func (s *Server) handleDetectFace(c echo.Context) error {
@@ -251,17 +251,17 @@ func (s *Server) handleDetectFace(c echo.Context) error {
 	if req.Options != nil {
 		opts = *req.Options
 	} else {
-		if req.CheckPose != nil {
-			opts.CheckPose = *req.CheckPose
+		if req.SkipPose != nil {
+			opts.SkipPose = *req.SkipPose
 		}
-		if req.CheckBlur != nil {
-			opts.CheckBlur = *req.CheckBlur
+		if req.SkipBlur != nil {
+			opts.SkipBlur = *req.SkipBlur
 		}
-		if req.CheckMosaic != nil {
-			opts.CheckMosaic = *req.CheckMosaic
+		if req.SkipMosaic != nil {
+			opts.SkipMosaic = *req.SkipMosaic
 		}
-		if req.CheckParse != nil {
-			opts.CheckParse = *req.CheckParse
+		if req.SkipParse != nil {
+			opts.SkipParse = *req.SkipParse
 		}
 	}
 	res, err := s.svc.DetectFace(src, opts)

@@ -104,8 +104,9 @@ func faceParseReject(img *image.NRGBA, box []float64) string {
 		return ""
 	}
 	// Extra top pad so caps / hats above the forehead stay in the parse crop.
+	// Side pad keeps hands on cheeks inside the window.
 	// Keep bottom pad small so shirt collars on ID photos are not treated as masks.
-	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.15, 0.45, 0.15, 0.04)
+	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.22, 0.45, 0.22, 0.06)
 	if crop == nil {
 		return ""
 	}
@@ -276,7 +277,220 @@ func judgeParseLabels(labels []uint8) string {
 	if hair > int(fc*0.7) && skin < int(fc*0.15) {
 		return "检测到人脸遮挡，已拒绝"
 	}
+
+	// Hand / object covering one half of the face: BiSeNet often paints the
+	// palm as skin or hair, but eye/brow/ear on that side disappear together.
+	if hemifaceOcclusion(counts) {
+		return "检测到人脸遮挡，已拒绝"
+	}
+
+	// Hand on cheek / temple: palm as skin + ear/cheek zone cues.
+	if handOnCheek(labels, counts) {
+		return "检测到人脸遮挡，已拒绝"
+	}
 	return ""
+}
+
+// hemifaceOcclusion is true when ≥2 of {eye, brow, ear} pairs are present on
+// one side and nearly absent on the other — typical of a hand covering a cheek.
+func hemifaceOcclusion(counts [parseClassN]int) bool {
+	type pair struct{ a, b int }
+	pairs := []pair{
+		{counts[parseLEye], counts[parseREye]},
+		{counts[parseLBrow], counts[parseRBrow]},
+		{counts[parseLEar], counts[parseREar]},
+	}
+	leftHeavy, rightHeavy := 0, 0
+	for _, p := range pairs {
+		if p.a >= 150 && p.b < 40 {
+			leftHeavy++ // subject-left features only
+		}
+		if p.b >= 150 && p.a < 40 {
+			rightHeavy++ // subject-right features only
+		}
+	}
+	// All deficits on the same side of the face.
+	return leftHeavy >= 2 || rightHeavy >= 2
+}
+
+// handOnCheek detects a hand covering one cheek/ear. Hands are labeled as skin,
+// so we look for ear asymmetry plus skin (not hair) filling the missing-ear zone.
+func handOnCheek(labels []uint8, counts [parseClassN]int) bool {
+	lear, rear := counts[parseLEar], counts[parseREar]
+	// CelebAMask: LEar = subject's left (image-right), REar = subject's right (image-left).
+	if lear >= 200 && rear < 50 {
+		// Subject's right ear gone → image-left ear/cheek zone.
+		if earZoneCoveredBySkin(labels, true) || outerSkinIntrusion(labels, true) {
+			return true
+		}
+		// Near-total one-sided ear loss is abnormal for a clean frontal ID crop.
+		if rear < 15 && lear >= 400 && !earZoneCoveredByHair(labels, true) {
+			return true
+		}
+	}
+	if rear >= 200 && lear < 50 {
+		if earZoneCoveredBySkin(labels, false) || outerSkinIntrusion(labels, false) {
+			return true
+		}
+		if lear < 15 && rear >= 400 && !earZoneCoveredByHair(labels, false) {
+			return true
+		}
+	}
+	return asymmetricSideSkin(labels)
+}
+
+// earZoneCounts inspects the approximate ear/cheek strip on one image side.
+func earZoneCounts(labels []uint8, imageLeft bool) (skin, hair, ear, total int) {
+	side := parseSide(labels)
+	if side < 16 {
+		return 0, 0, 0, 0
+	}
+	// Subject's right ear sits on the image-left flank for a frontal face.
+	x0, x1 := side*4/100, side*32/100
+	if !imageLeft {
+		x0, x1 = side*68/100, side*96/100
+	}
+	y0, y1 := side*28/100, side*62/100
+	for y := y0; y < y1; y++ {
+		row := y * side
+		for x := x0; x < x1; x++ {
+			total++
+			switch labels[row+x] {
+			case parseSkin:
+				skin++
+			case parseHair:
+				hair++
+			case parseLEar, parseREar:
+				ear++
+			}
+		}
+	}
+	return skin, hair, ear, total
+}
+
+func earZoneCoveredBySkin(labels []uint8, imageLeft bool) bool {
+	skin, hair, ear, total := earZoneCounts(labels, imageLeft)
+	if total < 80 {
+		return false
+	}
+	// Hand on cheek: ear gone, skin dominates (hand), hair is not the cover.
+	return ear < total/25 && skin >= total*35/100 && skin > hair+total/10
+}
+
+func earZoneCoveredByHair(labels []uint8, imageLeft bool) bool {
+	skin, hair, ear, total := earZoneCounts(labels, imageLeft)
+	if total < 80 {
+		return false
+	}
+	return hair >= total*45/100 && hair > skin && ear < total/15
+}
+
+// outerSkinIntrusion reports a thick skin slab on one image side that also
+// touches the bottom edge (typical of a hand/arm entering the frame).
+// imageLeft=true checks the left columns of the parse map.
+func outerSkinIntrusion(labels []uint8, imageLeft bool) bool {
+	side := parseSide(labels)
+	if side < 16 {
+		return false
+	}
+	x0, x1 := 0, side*20/100
+	if !imageLeft {
+		x0, x1 = side*80/100, side
+	}
+	y0 := side * 25 / 100
+	y1 := side * 90 / 100
+	skin, total, bottomSkin := 0, 0, 0
+	bottomY0 := side * 78 / 100
+	for y := y0; y < y1; y++ {
+		row := y * side
+		for x := x0; x < x1; x++ {
+			total++
+			if labels[row+x] != parseSkin {
+				continue
+			}
+			skin++
+			if y >= bottomY0 {
+				bottomSkin++
+			}
+		}
+	}
+	if total < 1 {
+		return false
+	}
+	skinR := float64(skin) / float64(total)
+	bottomBand := (x1 - x0) * (y1 - bottomY0)
+	if bottomBand < 1 {
+		bottomBand = 1
+	}
+	bottomR := float64(bottomSkin) / float64(bottomBand)
+	return skinR >= 0.38 && bottomR >= 0.12
+}
+
+// asymmetricSideSkin: one outer flank is mostly skin (hand), the other is not.
+func asymmetricSideSkin(labels []uint8) bool {
+	left := outerSkinRatio(labels, true)
+	right := outerSkinRatio(labels, false)
+	leftBottom := outerTouchesBottom(labels, true)
+	rightBottom := outerTouchesBottom(labels, false)
+	if left >= 0.40 && leftBottom && right < 0.26 {
+		return true
+	}
+	if right >= 0.40 && rightBottom && left < 0.26 {
+		return true
+	}
+	return false
+}
+
+func outerSkinRatio(labels []uint8, imageLeft bool) float64 {
+	side := parseSide(labels)
+	if side < 16 {
+		return 0
+	}
+	x0, x1 := 0, side*18/100
+	if !imageLeft {
+		x0, x1 = side*82/100, side
+	}
+	y0, y1 := side*28/100, side*85/100
+	skin, total := 0, 0
+	for y := y0; y < y1; y++ {
+		row := y * side
+		for x := x0; x < x1; x++ {
+			total++
+			if labels[row+x] == parseSkin {
+				skin++
+			}
+		}
+	}
+	if total < 1 {
+		return 0
+	}
+	return float64(skin) / float64(total)
+}
+
+func outerTouchesBottom(labels []uint8, imageLeft bool) bool {
+	side := parseSide(labels)
+	if side < 16 {
+		return false
+	}
+	x0, x1 := 0, side*18/100
+	if !imageLeft {
+		x0, x1 = side*82/100, side
+	}
+	y0 := side * 82 / 100
+	skin, total := 0, 0
+	for y := y0; y < side; y++ {
+		row := y * side
+		for x := x0; x < x1; x++ {
+			total++
+			if labels[row+x] == parseSkin {
+				skin++
+			}
+		}
+	}
+	if total < 1 {
+		return false
+	}
+	return float64(skin)/float64(total) >= 0.10
 }
 
 // topHatRatio is the share of hat pixels in the upper 30% of the parse map.

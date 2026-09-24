@@ -152,6 +152,39 @@ func TestJudgeParseRejectsCapLabeledAsHair(t *testing.T) {
 	}
 }
 
+func TestJudgeParseRejectsHandOnCheek(t *testing.T) {
+	labels := synthParseMap(func(x, y, side int) uint8 {
+		// Subject's right hand covers right cheek: only left eye/brow/ear remain.
+		if x > side*82/100 && y > side*40/100 && y < side*55/100 {
+			return parseLEar
+		}
+		if y > side/5 && y < side/3 {
+			if x > side*55/100 {
+				return parseLEye
+			}
+			if x > side*50/100 {
+				return parseLBrow
+			}
+			// right eye/brow wiped out
+			return parseSkin
+		}
+		if y > side/3 && y < side/2 && x > side*2/5 && x < side*3/5 {
+			return parseNose
+		}
+		if y > side*3/5 && y < side*3/4 {
+			return parseULip
+		}
+		if x < side*30/100 && y > side*30/100 {
+			return parseSkin // hand mass
+		}
+		return parseSkin
+	})
+	reason := judgeParseLabels(labels)
+	if !strings.Contains(reason, "遮挡") {
+		t.Fatalf("expected hand occlusion reject, got %q", reason)
+	}
+}
+
 func synthParseMap(fn func(x, y, side int) uint8) []uint8 {
 	side := parseSize
 	out := make([]uint8, side*side)

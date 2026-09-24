@@ -33,10 +33,10 @@ export namespace core {
 	    }
 	}
 	export class FaceCheckOptions {
-	    checkPose: boolean;
-	    checkBlur: boolean;
-	    checkMosaic: boolean;
-	    checkParse: boolean;
+	    skipPose: boolean;
+	    skipBlur: boolean;
+	    skipMosaic: boolean;
+	    skipParse: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FaceCheckOptions(source);
@@ -44,10 +44,10 @@ export namespace core {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.checkPose = source["checkPose"];
-	        this.checkBlur = source["checkBlur"];
-	        this.checkMosaic = source["checkMosaic"];
-	        this.checkParse = source["checkParse"];
+	        this.skipPose = source["skipPose"];
+	        this.skipBlur = source["skipBlur"];
+	        this.skipMosaic = source["skipMosaic"];
+	        this.skipParse = source["skipParse"];
 	    }
 	}
 	export class FaceCheckResult {

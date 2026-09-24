@@ -284,10 +284,10 @@ export function useStudio() {
     progressPercent.value = 12
     try {
       const person = normalizeFaceCheck(await IDPhotoService.DetectFace(dataUrl, {
-        checkPose: !!setting.checkPose,
-        checkBlur: !!setting.checkBlur,
-        checkMosaic: !!setting.checkMosaic,
-        checkParse: !!setting.checkParse,
+        skipPose: !setting.checkPose,
+        skipBlur: !setting.checkBlur,
+        skipMosaic: !setting.checkMosaic,
+        skipParse: !setting.checkParse,
       }))
       progressPercent.value = person.ok ? 100 : 0
       return person

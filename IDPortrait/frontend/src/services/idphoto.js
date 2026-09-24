@@ -404,11 +404,12 @@ export const IDPhotoService = {
   },
 
   async DetectFace(image, options = {}) {
+    // Skip* defaults to false → all gates ON (safe if bindings drop fields).
     const opts = {
-      checkPose: options.checkPose !== false,
-      checkBlur: options.checkBlur !== false,
-      checkMosaic: options.checkMosaic !== false,
-      checkParse: options.checkParse !== false,
+      skipPose: options.skipPose === true || options.checkPose === false,
+      skipBlur: options.skipBlur === true || options.checkBlur === false,
+      skipMosaic: options.skipMosaic === true || options.checkMosaic === false,
+      skipParse: options.skipParse === true || options.checkParse === false,
     }
     const res = await tryGo('DetectFace', image, opts)
     if (res !== undefined) return res
