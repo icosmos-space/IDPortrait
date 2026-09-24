@@ -14,9 +14,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-
-	_ "image/gif"
-	_ "image/png"
 )
 
 // Engine hosts ID-photo processing algorithms.
@@ -241,14 +238,13 @@ func (e *Engine) resolveSource(sourceImg string) (image.Image, string, error) {
 }
 
 func loadImageFile(path string) (image.Image, string, error) {
-	f, err := os.Open(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", fmt.Errorf("open image: %w", err)
 	}
-	defer f.Close()
-	img, format, err := image.Decode(f)
+	img, format, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
-		return nil, "", fmt.Errorf("decode image %s: %w", filepath.Base(path), err)
+		return nil, "", fmt.Errorf("decode image %s: %w%s", filepath.Base(path), err, decodeFormatHint(raw))
 	}
 	return img, format, nil
 }
@@ -264,7 +260,7 @@ func decodeDataURL(dataURL string) (image.Image, error) {
 	}
 	img, _, err := image.Decode(bytes.NewReader(raw))
 	if err != nil {
-		return nil, fmt.Errorf("decode data url image: %w", err)
+		return nil, fmt.Errorf("decode data url image: %w%s", err, decodeFormatHint(raw))
 	}
 	return img, nil
 }

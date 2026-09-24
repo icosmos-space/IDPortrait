@@ -16,6 +16,8 @@ import (
 
 	"IDPortrait/core"
 
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
 	"golang.org/x/sys/windows"
 )
 
