@@ -41,7 +41,7 @@ var (
 
 // DetectFace runs YuNet on a new photo before it enters preview.
 // Exactly one frontal face is accepted. Sideways photos are rotated upright.
-// Side face / looking down / looking up / blur / mosaic are rejected.
+// Side face / looking down / looking up / blur / mosaic / closed eyes / occlusion are rejected.
 // The live camera viewfinder does not use this path.
 func DetectFace(src string) (*FaceCheckResult, error) {
 	src = strings.TrimSpace(src)
@@ -114,6 +114,9 @@ func DetectFace(src string) (*FaceCheckResult, error) {
 			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 		}
 		if reason := faceQualityReject(bestView, best.FaceBox); reason != "" {
+			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+		}
+		if reason := faceParseReject(bestView, best.FaceBox); reason != "" {
 			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 		}
 		return best, nil

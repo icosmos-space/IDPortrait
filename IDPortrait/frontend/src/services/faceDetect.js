@@ -200,7 +200,22 @@ export function qualifyDetections(detections, width, height) {
     return { ok: false, reason: '请不要抬头，平视镜头', face }
   }
 
+  const leftEAR = eyeAspectRatio(lm.getLeftEye())
+  const rightEAR = eyeAspectRatio(lm.getRightEye())
+  if (leftEAR < 0.18 || rightEAR < 0.18) {
+    return { ok: false, reason: '请睁开眼睛', face }
+  }
+
   return { ok: true, reason: '姿态合格，可以拍照', face }
+}
+
+function eyeAspectRatio(points) {
+  if (!points || points.length < 6) return 1
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  const v1 = dist(points[1], points[5])
+  const v2 = dist(points[2], points[4])
+  const h = dist(points[0], points[3]) || 1
+  return (v1 + v2) / (2 * h)
 }
 
 /** Map detector coords onto the horizontally flipped capture image. */

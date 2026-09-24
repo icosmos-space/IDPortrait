@@ -30,6 +30,12 @@ func makeIDPhoto(src *image.NRGBA, p GenerateParams) (*idBundle, error) {
 		return nil, fmt.Errorf("检测到多张人脸，已拒绝")
 	}
 	face := faces[0]
+
+	// MODNet is a portrait model. On ID-card scans the face is tiny and the
+	// network latches onto the whole card — zoom to a head-shoulders ROI first.
+	var cropped bool
+	work, face, cropped = cropPortraitROI(work, face)
+
 	if roll := eyeRoll(face); math.Abs(roll) > 2 {
 		turned := rotateBound(work, -roll)
 		again, err := detectFaces(turned)
@@ -43,6 +49,10 @@ func makeIDPhoto(src *image.NRGBA, p GenerateParams) (*idBundle, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cropped {
+		// Printed faces leave floating card-pattern crumbs; keep only near the face.
+		applyFaceGate(cut, face)
+	}
 	featherAlpha(cut, p.MaskFeather)
 	applyBeauty(cut, p.BeautyStrength, p.SkinBright, p.EyeSharp)
 
@@ -54,6 +64,92 @@ func makeIDPhoto(src *image.NRGBA, p GenerateParams) (*idBundle, error) {
 
 func eyeRoll(f faceHit) float64 {
 	return math.Atan2(f.kps[3]-f.kps[1], f.kps[2]-f.kps[0]) * 180 / math.Pi
+}
+
+// cropPortraitROI zooms to a head-and-shoulders window when the face is a
+// small fraction of the frame (ID-card prints). Face coords are remapped.
+func cropPortraitROI(src *image.NRGBA, face faceHit) (*image.NRGBA, faceHit, bool) {
+	if src == nil {
+		return src, face, false
+	}
+	iw, ih := src.Bounds().Dx(), src.Bounds().Dy()
+	if iw < 32 || ih < 32 || face.w < 8 || face.h < 8 {
+		return src, face, false
+	}
+	faceFrac := (face.w * face.h) / float64(iw*ih)
+	if faceFrac >= 0.08 {
+		return src, face, false
+	}
+
+	fw, fh := face.w, face.h
+	cx := face.x + fw/2
+	cy := face.y + fh/2
+	top := cy - fh*1.35
+	bottom := cy + fh*2.1
+	height := bottom - top
+	width := height * 3 / 4
+	if width < fw*2.4 {
+		width = fw * 2.4
+	}
+	left := cx - width/2
+	right := cx + width/2
+
+	x1 := int(math.Floor(left))
+	y1 := int(math.Floor(top))
+	x2 := int(math.Ceil(right))
+	y2 := int(math.Ceil(bottom))
+	if x1 < 0 {
+		x1 = 0
+	}
+	if y1 < 0 {
+		y1 = 0
+	}
+	if x2 > iw {
+		x2 = iw
+	}
+	if y2 > ih {
+		y2 = ih
+	}
+	if x2-x1 < 32 || y2-y1 < 32 {
+		return src, face, false
+	}
+
+	crop := cutPad(src, x1, y1, x2, y2)
+	local := face
+	local.x = face.x - float64(x1)
+	local.y = face.y - float64(y1)
+	for i := 0; i < 5; i++ {
+		local.kps[i*2] -= float64(x1)
+		local.kps[i*2+1] -= float64(y1)
+	}
+	return crop, local, true
+}
+
+func applyFaceGate(img *image.NRGBA, face faceHit) {
+	w, h := img.Bounds().Dx(), img.Bounds().Dy()
+	cx := face.x + face.w/2
+	cy := face.y + face.h*0.55
+	rx := math.Max(face.w*1.4, float64(w)*0.45)
+	ry := math.Max(face.h*1.9, float64(h)*0.5)
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			nx := (float64(x) - cx) / rx
+			ny := (float64(y) - cy) / ry
+			d := math.Sqrt(nx*nx + ny*ny)
+			var g float64
+			switch {
+			case d <= 0.82:
+				g = 1
+			case d >= 1.08:
+				g = 0
+			default:
+				t := (d - 0.82) / (1.08 - 0.82)
+				g = 1 - t*t*(3-2*t)
+			}
+			i := img.PixOffset(x, y)
+			img.Pix[i+3] = uint8(float64(img.Pix[i+3]) * g)
+		}
+	}
 }
 
 func photoPixels(p GenerateParams) (int, int) {
@@ -592,7 +688,10 @@ func fillMatteHoles(alpha []float32, w, h int) []float32 {
 			out[i] = alpha[i]
 		}
 	}
-	// Fill enclosed holes: background is reachable from the border through zeros.
+	// Fill only small enclosed holes (hair gaps, etc.). Large "holes" usually
+	// mean MODNet kept an ID-card / object outline — filling them would paint
+	// the whole card opaque. Hivision hollow_out is contour-based; this guard
+	// approximates that safety.
 	bg := make([]byte, n)
 	stack = stack[:0]
 	push := func(i int) {
@@ -626,6 +725,15 @@ func fillMatteHoles(alpha []float32, w, h int) []float32 {
 		if y+1 < h {
 			push(cur + w)
 		}
+	}
+	hole := 0
+	for i := 0; i < n; i++ {
+		if out[i] < 0.5 && bg[i] == 0 {
+			hole++
+		}
+	}
+	if best < 1 || hole > best*35/100 {
+		return out
 	}
 	for i := 0; i < n; i++ {
 		if out[i] < 0.5 && bg[i] == 0 {

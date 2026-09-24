@@ -239,6 +239,18 @@ export function useStudio() {
     } else if (reason.includes('马赛克')) {
       title = '人脸马赛克'
       detail = '检测到人脸被马赛克或像素化处理，不能制作证件照。请换一张未打码的清晰正面单人照片。'
+    } else if (reason.includes('闭眼')) {
+      title = '闭眼不合格'
+      detail = '检测到闭眼，不能制作证件照。请睁眼平视镜头后重新拍摄或换图。'
+    } else if (reason.includes('墨镜')) {
+      title = '墨镜遮挡'
+      detail = '检测到墨镜遮挡眼睛，不能制作证件照。请摘下墨镜后重新拍摄或换图。'
+    } else if (reason.includes('帽子')) {
+      title = '帽子遮挡'
+      detail = '检测到帽子遮挡面部，不能制作证件照。请摘帽后重新拍摄或换图。'
+    } else if (reason.includes('遮挡')) {
+      title = '面部遮挡'
+      detail = '检测到口罩、手或其他物体遮挡面部，不能制作证件照。请露出完整五官后重新拍摄或换图。'
     }
     const thumb = previewUrl || person?.dataUrl || ''
     statusText.value = title
@@ -375,7 +387,15 @@ export function useStudio() {
       setOriginView(payload.originImg, payload.faceBox, payload.landmarks)
     }
 
-    mattingView.value = payload.mattingImg || ''
+    const matting = payload.mattingImg || ''
+    // 防止把检验/水平修正后的 JPEG 原图误当作抠图预览
+    if (matting && (matting === originView.value?.img || matting === payload.originImg || matting.startsWith('data:image/jpeg'))) {
+      mattingView.value = ''
+      message.warning('抠图结果异常（未得到透明通道），请重试或更换抠图模型')
+    } else {
+      mattingView.value = matting
+      if (matting) activeOriginTab.value = 'matting'
+    }
 
     const next = payload.results || {}
     resultSet.single = next.single || payload.resultImg || ''

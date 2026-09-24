@@ -10,7 +10,7 @@ import (
 
 func TestFaceQualityRejectsBlur(t *testing.T) {
 	sharp := synthFaceTexture(160, false, 0)
-	blur := boxBlurNRGBA(sharp, 6)
+	blur := boxBlurNRGBA(sharp, 10)
 	box := []float64{20, 20, 140, 140}
 	if reason := faceQualityReject(sharp, box); reason != "" {
 		t.Fatalf("sharp should pass, got %q", reason)

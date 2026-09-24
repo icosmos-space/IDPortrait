@@ -15,12 +15,22 @@ func faceQualityReject(img *image.NRGBA, box []float64) string {
 	if crop == nil || crop.w < 24 || crop.h < 24 {
 		return ""
 	}
-	norm := resizeGrayCrop(crop, 160)
-	if fit, jump := bestMosaicFit(norm); fit >= 0.86 && jump >= 6 {
+
+	// Mosaic check must NOT upscale: printed ID-card portraits are small and
+	// look blocky after enlargement, which falsely trips pixelation detectors.
+	mosaicSrc := crop
+	if crop.w > 192 || crop.h > 192 {
+		mosaicSrc = resizeGrayCropMax(crop, 192)
+	}
+	if isMosaicFace(mosaicSrc) {
 		return "检测到人脸马赛克，已拒绝"
 	}
+
+	norm := resizeGrayCrop(crop, 160)
 	sharp := laplacianVariance(norm)
-	if sharp < 90 {
+	// Printed ID-card portraits are softer than digital captures; 90 was
+	// rejecting them. Intentional heavy blur still lands well below 70.
+	if sharp < 70 {
 		return "检测到人脸模糊，已拒绝"
 	}
 	return ""
@@ -79,10 +89,36 @@ func resizeGrayCrop(src *grayCrop, side int) *grayCrop {
 	if src == nil || side < 8 {
 		return src
 	}
-	dst := &grayCrop{w: side, h: side, pix: make([]float64, side*side)}
-	scaleX := float64(src.w) / float64(side)
-	scaleY := float64(src.h) / float64(side)
-	for y := 0; y < side; y++ {
+	return resizeGrayExact(src, side, side)
+}
+
+func resizeGrayCropMax(src *grayCrop, maxSide int) *grayCrop {
+	if src == nil {
+		return nil
+	}
+	m := src.w
+	if src.h > m {
+		m = src.h
+	}
+	if m <= maxSide {
+		return src
+	}
+	nw := src.w * maxSide / m
+	nh := src.h * maxSide / m
+	if nw < 8 {
+		nw = 8
+	}
+	if nh < 8 {
+		nh = 8
+	}
+	return resizeGrayExact(src, nw, nh)
+}
+
+func resizeGrayExact(src *grayCrop, nw, nh int) *grayCrop {
+	dst := &grayCrop{w: nw, h: nh, pix: make([]float64, nw*nh)}
+	scaleX := float64(src.w) / float64(nw)
+	scaleY := float64(src.h) / float64(nh)
+	for y := 0; y < nh; y++ {
 		y0 := int(float64(y) * scaleY)
 		y1 := int(float64(y+1) * scaleY)
 		if y1 <= y0 {
@@ -91,7 +127,7 @@ func resizeGrayCrop(src *grayCrop, side int) *grayCrop {
 		if y1 > src.h {
 			y1 = src.h
 		}
-		for x := 0; x < side; x++ {
+		for x := 0; x < nw; x++ {
 			x0 := int(float64(x) * scaleX)
 			x1 := int(float64(x+1) * scaleX)
 			if x1 <= x0 {
@@ -109,7 +145,7 @@ func resizeGrayCrop(src *grayCrop, side int) *grayCrop {
 				}
 			}
 			if n > 0 {
-				dst.pix[y*side+x] = sum / float64(n)
+				dst.pix[y*nw+x] = sum / float64(n)
 			}
 		}
 	}
@@ -138,25 +174,28 @@ func laplacianVariance(g *grayCrop) float64 {
 	return sumSq/float64(n) - mean*mean
 }
 
-// bestMosaicFit returns how well the crop matches constant tiles, and the
-// average jump between neighboring tiles. Mosaic → high fit + high jump.
-func bestMosaicFit(g *grayCrop) (fit, jump float64) {
+// isMosaicFace requires flat tiles (low within-block variance), strong tile
+// jumps, and a near-perfect block reconstruction — typical of intentional
+// pixelation, not of small printed portraits on ID cards.
+func isMosaicFace(g *grayCrop) bool {
 	if g == nil {
-		return 0, 0
+		return false
 	}
-	bestFit, bestJump := 0.0, 0.0
-	for _, bs := range []int{6, 8, 10, 12, 16, 20, 24} {
-		f, j := mosaicFitAt(g, bs)
-		if f > bestFit {
-			bestFit, bestJump = f, j
+	for _, bs := range []int{8, 10, 12, 16, 20, 24} {
+		fit, jump, within := mosaicStatsAt(g, bs)
+		if fit >= 0.94 && jump >= 10 && within < 12 {
+			return true
+		}
+		if fit >= 0.97 && jump >= 8 && within < 20 {
+			return true
 		}
 	}
-	return bestFit, bestJump
+	return false
 }
 
-func mosaicFitAt(g *grayCrop, bs int) (fit, jump float64) {
+func mosaicStatsAt(g *grayCrop, bs int) (fit, jump, within float64) {
 	if g == nil || bs < 2 || g.w < bs*3 || g.h < bs*3 {
-		return 0, 0
+		return 0, 0, 0
 	}
 	cols := g.w / bs
 	rows := g.h / bs
@@ -165,14 +204,17 @@ func mosaicFitAt(g *grayCrop, bs int) (fit, jump float64) {
 	var sum, sumSq float64
 	nPix := 0
 	var mse float64
+	var withinSum float64
+	wn := 0
 	for by := 0; by < rows; by++ {
 		for bx := 0; bx < cols; bx++ {
-			var s float64
+			var s, s2 float64
 			n := 0
 			for y := 0; y < bs; y++ {
 				for x := 0; x < bs; x++ {
 					v := g.pix[(by*bs+y)*g.w+(bx*bs+x)]
 					s += v
+					s2 += v * v
 					sum += v
 					sumSq += v * v
 					n++
@@ -181,6 +223,9 @@ func mosaicFitAt(g *grayCrop, bs int) (fit, jump float64) {
 			}
 			m := s / float64(n)
 			means[by*cols+bx] = m
+			blockVar := s2/float64(n) - m*m
+			withinSum += blockVar
+			wn++
 			for y := 0; y < bs; y++ {
 				for x := 0; x < bs; x++ {
 					v := g.pix[(by*bs+y)*g.w+(bx*bs+x)]
@@ -190,18 +235,19 @@ func mosaicFitAt(g *grayCrop, bs int) (fit, jump float64) {
 			}
 		}
 	}
-	if nPix < 1 {
-		return 0, 0
+	if nPix < 1 || wn < 1 {
+		return 0, 0, 0
 	}
 	mean := sum / float64(nPix)
 	variance := sumSq/float64(nPix) - mean*mean
 	if variance < 1 {
-		return 0, 0
+		return 0, 0, 0
 	}
-	fit = 1 - (mse/float64(nPix))/(variance)
+	fit = 1 - (mse/float64(nPix))/variance
 	if fit < 0 {
 		fit = 0
 	}
+	within = withinSum / float64(wn)
 
 	var between float64
 	bn := 0
@@ -221,7 +267,7 @@ func mosaicFitAt(g *grayCrop, bs int) (fit, jump float64) {
 	if bn > 0 {
 		jump = between / float64(bn)
 	}
-	return fit, jump
+	return fit, jump, within
 }
 
 func faceQualityMetrics(img *image.NRGBA) (sharp, fit, jump float64) {
@@ -232,6 +278,15 @@ func faceQualityMetrics(img *image.NRGBA) (sharp, fit, jump float64) {
 	crop := cropFaceGray(img, 0, 0, float64(b.Dx()), float64(b.Dy()), 0)
 	norm := resizeGrayCrop(crop, 160)
 	sharp = laplacianVariance(norm)
-	fit, jump = bestMosaicFit(norm)
+	src := crop
+	if crop.w > 192 || crop.h > 192 {
+		src = resizeGrayCropMax(crop, 192)
+	}
+	for _, bs := range []int{8, 10, 12, 16, 20, 24} {
+		f, j, _ := mosaicStatsAt(src, bs)
+		if f > fit {
+			fit, jump = f, j
+		}
+	}
 	return sharp, fit, jump
 }

@@ -27,6 +27,10 @@ go.work.sum
 # env file
 .env
 
+# Large local AI weights (download separately)
+*.onnx
+IDPortrait/core/testdata_*
+
 # Editor/IDE
 # .idea/
 # .vscode/

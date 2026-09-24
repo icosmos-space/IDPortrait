@@ -335,15 +335,18 @@ function makeLayoutDataUrl(bg, label, mode = 'solid') {
 }
 
 async function tryGo(method, ...args) {
+  let mod
   try {
-    const mod = await import('../../wailsjs/go/main/App.js')
-    if (typeof mod[method] === 'function') {
-      return await mod[method](...args)
-    }
+    mod = await import('../../wailsjs/go/main/App.js')
   } catch {
-    // Go 绑定尚未生成或未实现
+    // 非 Wails 环境（纯浏览器预览）才回退 mock / HTTP
+    return undefined
   }
-  return undefined
+  if (typeof mod[method] !== 'function') {
+    return undefined
+  }
+  // Go 方法已绑定：错误必须抛出，禁止吞掉后落到 mock（否则会把检验后的原图当成抠图）
+  return await mod[method](...args)
 }
 
 export const IDPhotoService = {
