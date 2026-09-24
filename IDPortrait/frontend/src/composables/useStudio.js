@@ -1,4 +1,4 @@
-import { ref, reactive, onMounted, onBeforeUnmount, watch, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, watch, computed, h } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { IDPhotoService } from '../services/idphoto'
 import {
@@ -217,21 +217,29 @@ export function useStudio() {
     }
   }
 
-  function showFaceReject(person) {
+  function showFaceReject(person, previewUrl = '') {
     const many = String(person?.reason || '').includes('多张')
     const title = many ? '人脸太多' : '没有人脸'
     const detail = many
       ? '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
       : '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
+    const thumb = previewUrl || person?.dataUrl || ''
     statusText.value = title
     processTagType.value = 'error'
     dialog.error({
       title,
-      content: detail,
+      content: () => h('div', { class: 'face-reject-body' }, [
+        thumb
+          ? h('div', { class: 'face-reject-thumb-wrap' }, [
+              h('img', { class: 'face-reject-thumb', src: thumb, alt: '所选图片' }),
+            ])
+          : null,
+        h('p', { class: 'face-reject-text' }, detail),
+      ]),
       positiveText: '知道了',
       closable: false,
       maskClosable: false,
-      style: { width: '460px' },
+      style: { width: '480px' },
     })
   }
 
@@ -661,7 +669,7 @@ export function useStudio() {
     try {
       const person = await detectBeforePreview(dataUrl)
       if (!person?.ok) {
-        showFaceReject(person)
+        showFaceReject(person, dataUrl)
         return
       }
       Object.assign(report, {
@@ -698,7 +706,7 @@ export function useStudio() {
       }
       const person = await detectBeforePreview(ret.imgBase64)
       if (!person?.ok) {
-        showFaceReject(person)
+        showFaceReject(person, ret.imgBase64)
         return
       }
       Object.assign(report, { ...ret.report, faceOk: true, faceScore: person.score || ret.report.faceScore })
