@@ -75,8 +75,8 @@ type FaceCheckResult struct {
 // Zero value runs every check (Skip* = false). Set SkipX to disable one gate.
 // Missing face / multiple faces are always rejected.
 type FaceCheckOptions struct {
-	SkipPose   bool `json:"skipPose"`   // yaw / pitch (side face, looking up/down)
-	SkipTilt   bool `json:"skipTilt"`   // head roll + shoulder tilt/twist
+	SkipPose   bool `json:"skipPose"` // yaw / pitch (side face, looking up/down)
+	SkipTilt   bool `json:"skipTilt"` // head roll + shoulder tilt/twist
 	SkipBlur   bool `json:"skipBlur"`
 	SkipMosaic bool `json:"skipMosaic"`
 	SkipParse  bool `json:"skipParse"` // closed eyes / mask / sunglasses / hat / hand
