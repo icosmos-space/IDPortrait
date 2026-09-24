@@ -234,6 +234,10 @@ const emit = defineEmits(['update:expandedPanels'])
             size="small"
           />
         </div>
+        <div v-if="params.genPrintLayout" class="field switch-row">
+          <label>排版切割线</label>
+          <n-switch v-model:value="params.layoutCropLine" size="small" />
+        </div>
         <div class="field switch-row">
           <label>目标文件大小</label>
           <n-switch v-model:value="params.enableTargetFileSize" size="small" />

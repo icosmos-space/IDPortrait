@@ -380,60 +380,164 @@ func compositeOn(fg *image.NRGBA, bg color.RGBA, mode string) *image.RGBA {
 	return dst
 }
 
-func layoutSheet(tile *image.RGBA, paperW, paperH int) *image.RGBA {
-	if paperW < tile.Bounds().Dx() {
-		paperW = tile.Bounds().Dx() + 40
-	}
-	if paperH < tile.Bounds().Dy() {
-		paperH = tile.Bounds().Dy() + 40
-	}
-	dst := image.NewRGBA(image.Rect(0, 0, paperW, paperH))
-	fillBackground(dst, color.RGBA{R: 255, G: 255, B: 255, A: 255}, "solid")
-	place := func(photo *image.RGBA, pw, ph int) int {
-		gap := mmToPx(2)
-		margin := mmToPx(4)
-		cols := max(1, (pw-margin*2+gap)/(photo.Bounds().Dx()+gap))
-		rows := max(1, (ph-margin*2+gap)/(photo.Bounds().Dy()+gap))
-		used := 0
-		for r := 0; r < rows; r++ {
-			for c := 0; c < cols; c++ {
-				x := margin + c*(photo.Bounds().Dx()+gap)
-				y := margin + r*(photo.Bounds().Dy()+gap)
-				if x+photo.Bounds().Dx() > pw || y+photo.Bounds().Dy() > ph {
-					continue
-				}
-				drawOver(dst, photo, x, y)
-				used++
+// Hivision layout canvas reference (6-inch landscape at their DPI).
+const (
+	hivisionLayoutW = 1795
+	hivisionLayoutH = 1205
+	hivisionGap     = 30
+	hivisionSideW   = 70
+	hivisionSideH   = 50
+)
+
+type layoutMode struct {
+	cols, rows int
+	rotate     bool
+	blockW     int
+	blockH     int
+}
+
+// judgeLayout mirrors HivisionIDPhotos layout_calculator.judge_layout.
+// photoW/photoH are the upright ID-photo size; interval/limit are in pixels.
+func judgeLayout(photoW, photoH, intervalW, intervalH, limitW, limitH int) layoutMode {
+	fit := func(cellW, cellH int) (cols, rows, blockW, blockH int) {
+		rows = 0
+		blockH = cellH
+		for i := 1; i <= 3; i++ {
+			h := cellH*i + intervalH*(i-1)
+			if h < limitH {
+				blockH = h
+				rows = i
+			} else {
+				break
 			}
 		}
-		return used
+		cols = 0
+		blockW = cellW
+		for j := 1; j <= 8; j++ {
+			w := cellW*j + intervalW*(j-1)
+			if w < limitW {
+				blockW = w
+				cols = j
+			} else {
+				break
+			}
+		}
+		return cols, rows, blockW, blockH
 	}
-	upright := place(tile, paperW, paperH)
-	turned := rotateRGBA90(tile)
-	sideways := countFit(turned, paperW, paperH)
-	if sideways > upright {
-		fillBackground(dst, color.RGBA{R: 255, G: 255, B: 255, A: 255}, "solid")
-		place(turned, paperW, paperH)
+
+	c1, r1, bw1, bh1 := fit(photoW, photoH)
+	c2, r2, bw2, bh2 := fit(photoH, photoW) // transposed cell
+	n1, n2 := c1*r1, c2*r2
+	if n2 > n1 {
+		return layoutMode{cols: c2, rows: r2, rotate: true, blockW: bw2, blockH: bh2}
+	}
+	return layoutMode{cols: c1, rows: r1, rotate: false, blockW: bw1, blockH: bh1}
+}
+
+func layoutSheet(tile *image.RGBA, paperW, paperH int, cropLine bool) *image.RGBA {
+	photoW, photoH := tile.Bounds().Dx(), tile.Bounds().Dy()
+	if paperW < 2 {
+		paperW = hivisionLayoutW
+	}
+	if paperH < 2 {
+		paperH = hivisionLayoutH
+	}
+	if paperW < photoW+40 {
+		paperW = photoW + 40
+	}
+	if paperH < photoH+40 {
+		paperH = photoH + 40
+	}
+
+	// Scale Hivision margins/gaps to the current paper size.
+	sidesW := max(1, int(math.Round(float64(hivisionSideW)*float64(paperW)/float64(hivisionLayoutW))))
+	sidesH := max(1, int(math.Round(float64(hivisionSideH)*float64(paperH)/float64(hivisionLayoutH))))
+	gapW := max(1, int(math.Round(float64(hivisionGap)*float64(paperW)/float64(hivisionLayoutW))))
+	gapH := max(1, int(math.Round(float64(hivisionGap)*float64(paperH)/float64(hivisionLayoutH))))
+	limitW := paperW - 2*sidesW
+	limitH := paperH - 2*sidesH
+	if limitW < photoW {
+		limitW = photoW
+	}
+	if limitH < photoH {
+		limitH = photoH
+	}
+
+	mode := judgeLayout(photoW, photoH, gapW, gapH, limitW, limitH)
+	if mode.cols < 1 || mode.rows < 1 {
+		mode = layoutMode{cols: 1, rows: 1, rotate: false, blockW: photoW, blockH: photoH}
+	}
+
+	photo := tile
+	cellW, cellH := photoW, photoH
+	if mode.rotate {
+		photo = transposeFlipVertical(tile)
+		cellW, cellH = photo.Bounds().Dx(), photo.Bounds().Dy()
+		// Recompute block size for the rotated cell (matches Hivision after swap).
+		mode.blockW = cellW*mode.cols + gapW*(mode.cols-1)
+		mode.blockH = cellH*mode.rows + gapH*(mode.rows-1)
+	}
+
+	dst := image.NewRGBA(image.Rect(0, 0, paperW, paperH))
+	fillBackground(dst, color.RGBA{R: 255, G: 255, B: 255, A: 255}, "solid")
+	x0 := (paperW - mode.blockW) / 2
+	y0 := (paperH - mode.blockH) / 2
+	if x0 < 0 {
+		x0 = 0
+	}
+	if y0 < 0 {
+		y0 = 0
+	}
+	positions := make([][2]int, 0, mode.rows*mode.cols)
+	for r := 0; r < mode.rows; r++ {
+		for c := 0; c < mode.cols; c++ {
+			x := x0 + c*(cellW+gapW)
+			y := y0 + r*(cellH+gapH)
+			if x+cellW > paperW || y+cellH > paperH {
+				continue
+			}
+			drawOver(dst, photo, x, y)
+			positions = append(positions, [2]int{x, y})
+		}
+	}
+	// Hivision crop_line: light-gray guides along each photo edge, full paper span.
+	if cropLine {
+		drawLayoutCropLines(dst, positions, cellW, cellH)
 	}
 	return dst
 }
 
-func countFit(photo *image.RGBA, pw, ph int) int {
-	gap := mmToPx(2)
-	margin := mmToPx(4)
-	cols := max(1, (pw-margin*2+gap)/(photo.Bounds().Dx()+gap))
-	rows := max(1, (ph-margin*2+gap)/(photo.Bounds().Dy()+gap))
-	n := 0
-	for r := 0; r < rows; r++ {
-		for c := 0; c < cols; c++ {
-			x := margin + c*(photo.Bounds().Dx()+gap)
-			y := margin + r*(photo.Bounds().Dy()+gap)
-			if x+photo.Bounds().Dx() <= pw && y+photo.Bounds().Dy() <= ph {
-				n++
-			}
+func drawLayoutCropLines(dst *image.RGBA, positions [][2]int, cellW, cellH int) {
+	if len(positions) == 0 {
+		return
+	}
+	line := color.RGBA{R: 200, G: 200, B: 200, A: 255}
+	paperW, paperH := dst.Bounds().Dx(), dst.Bounds().Dy()
+	vert := map[int]struct{}{}
+	horiz := map[int]struct{}{}
+	for _, p := range positions {
+		x, y := p[0], p[1]
+		vert[x] = struct{}{}
+		vert[x+cellW] = struct{}{}
+		horiz[y] = struct{}{}
+		horiz[y+cellH] = struct{}{}
+	}
+	for x := range vert {
+		if x < 0 || x >= paperW {
+			continue
+		}
+		for y := 0; y < paperH; y++ {
+			dst.SetRGBA(x, y, line)
 		}
 	}
-	return n
+	for y := range horiz {
+		if y < 0 || y >= paperH {
+			continue
+		}
+		for x := 0; x < paperW; x++ {
+			dst.SetRGBA(x, y, line)
+		}
+	}
 }
 
 func drawOver(dst *image.RGBA, src *image.RGBA, ox, oy int) {
@@ -447,13 +551,17 @@ func drawOver(dst *image.RGBA, src *image.RGBA, ox, oy int) {
 	}
 }
 
-func rotateRGBA90(src *image.RGBA) *image.RGBA {
+// transposeFlipVertical matches Hivision layout rotate:
+// cv2.transpose then cv2.flip(..., 0).
+func transposeFlipVertical(src *image.RGBA) *image.RGBA {
 	w, h := src.Bounds().Dx(), src.Bounds().Dy()
+	// After transpose: width=h, height=w; then vertical flip on that image.
 	dst := image.NewRGBA(image.Rect(0, 0, h, w))
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
+			// transpose: (x,y) -> (y,x); vertical flip: (y,x) -> (y, w-1-x)
 			si := src.PixOffset(x, y)
-			di := dst.PixOffset(h-1-y, x)
+			di := dst.PixOffset(y, w-1-x)
 			copy(dst.Pix[di:di+4], src.Pix[si:si+4])
 		}
 	}

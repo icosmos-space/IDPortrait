@@ -71,6 +71,7 @@ export function createDefaultParams() {
     watermarkAngle: -30,
     watermarkSpacing: 120,
     genPrintLayout: true,
+    layoutCropLine: true,
     paperSize: '',
     enableTargetFileSize: false,
     targetFileSize: 200,

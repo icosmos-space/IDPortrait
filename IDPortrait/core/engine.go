@@ -127,7 +127,7 @@ func (e *Engine) Generate(p GenerateParams) (*GenerateResult, error) {
 	if paperH > paperW {
 		paperW, paperH = paperH, paperW
 	}
-	layout := layoutSheet(std, paperW, paperH)
+	layout := layoutSheet(std, paperW, paperH, p.LayoutCropLine)
 	social, social2, err := socialTemplates(std)
 	if err != nil {
 		return nil, err

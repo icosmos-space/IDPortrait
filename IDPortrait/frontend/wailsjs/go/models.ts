@@ -82,6 +82,7 @@ export namespace core {
 	    watermarkAngle: number;
 	    watermarkSpacing: number;
 	    genPrintLayout: boolean;
+	    layoutCropLine: boolean;
 	    paperSize: string;
 	    enableTargetFileSize: boolean;
 	    targetFileSize: number;
@@ -125,6 +126,7 @@ export namespace core {
 	        this.watermarkAngle = source["watermarkAngle"];
 	        this.watermarkSpacing = source["watermarkSpacing"];
 	        this.genPrintLayout = source["genPrintLayout"];
+	        this.layoutCropLine = source["layoutCropLine"];
 	        this.paperSize = source["paperSize"];
 	        this.enableTargetFileSize = source["enableTargetFileSize"];
 	        this.targetFileSize = source["targetFileSize"];

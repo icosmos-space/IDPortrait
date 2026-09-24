@@ -37,6 +37,7 @@ type GenerateParams struct {
 	WatermarkAngle       float64 `json:"watermarkAngle"`
 	WatermarkSpacing     float64 `json:"watermarkSpacing"`
 	GenPrintLayout       bool    `json:"genPrintLayout"`
+	LayoutCropLine       bool    `json:"layoutCropLine"`
 	PaperSize            string  `json:"paperSize"`
 	EnableTargetFileSize bool    `json:"enableTargetFileSize"`
 	TargetFileSize       int     `json:"targetFileSize"`
