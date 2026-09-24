@@ -99,14 +99,17 @@ func parseNet() (*parseSession, error) {
 
 // faceParseReject uses BiSeNet face parsing to reject closed eyes and
 // common occlusions (mask / sunglasses / hat covering the face).
-func faceParseReject(img *image.NRGBA, box []float64) string {
+// landmarks are YuNet 5-point coords in image space (optional); when both
+// eyes are present there, one-sided parse labels alone do not prove hemiface.
+func faceParseReject(img *image.NRGBA, box []float64, landmarks []float64) string {
 	if img == nil || len(box) < 4 {
 		return ""
 	}
 	// Extra top pad so caps / hats above the forehead stay in the parse crop.
 	// Side pad keeps hands on cheeks inside the window.
-	// Keep bottom pad small so shirt collars on ID photos are not treated as masks.
-	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.22, 0.45, 0.22, 0.06)
+	// Bottom pad must include the wrist/forearm of a hand-on-cheek pose;
+	// keep it moderate so shirt collars / ID-card borders are not over-read.
+	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.28, 0.45, 0.28, 0.25)
 	if crop == nil {
 		return ""
 	}
@@ -115,7 +118,7 @@ func faceParseReject(img *image.NRGBA, box []float64) string {
 		// Parsing is advisory; do not block the pipeline on model failure.
 		return ""
 	}
-	return judgeParseLabels(labels)
+	return judgeParseLabelsWithKps(labels, landmarks)
 }
 
 func cropFaceNRGBA(img *image.NRGBA, x1, y1, x2, y2, padRatio float64) *image.NRGBA {
@@ -213,6 +216,10 @@ func argmaxParse(logits []float32, side, classes int) []uint8 {
 }
 
 func judgeParseLabels(labels []uint8) string {
+	return judgeParseLabelsWithKps(labels, nil)
+}
+
+func judgeParseLabelsWithKps(labels []uint8, landmarks []float64) string {
 	if len(labels) == 0 {
 		return ""
 	}
@@ -264,14 +271,10 @@ func judgeParseLabels(labels []uint8) string {
 	}
 
 	// Hats before the generic hair rule — caps often get hair labels.
-	if hat >= 600 || hat > int(fc*0.02) {
-		return "检测到帽子遮挡，已拒绝"
-	}
-	if topHatRatio(labels) >= 0.06 {
-		return "检测到帽子遮挡，已拒绝"
-	}
-	if topCapLikeCover(labels) {
-		return "检测到帽子遮挡，已拒绝"
+	// Require hat to dominate hair: printed ID cards / dark bangs spray
+	// false hat labels while real hair still outnumbers them.
+	if reason := hatOcclusionReason(labels, hat, hair, fc); reason != "" {
+		return reason
 	}
 
 	if hair > int(fc*0.7) && skin < int(fc*0.15) {
@@ -280,7 +283,8 @@ func judgeParseLabels(labels []uint8) string {
 
 	// Hand / object covering one half of the face: BiSeNet often paints the
 	// palm as skin or hair, but eye/brow/ear on that side disappear together.
-	if hemifaceOcclusion(counts) {
+	// Skip when YuNet already sees two separated eyes (L/R parse mix-ups).
+	if hemifaceOcclusion(counts) && !landmarksBothEyes(landmarks) {
 		return "检测到人脸遮挡，已拒绝"
 	}
 
@@ -289,6 +293,14 @@ func judgeParseLabels(labels []uint8) string {
 		return "检测到人脸遮挡，已拒绝"
 	}
 	return ""
+}
+
+// landmarksBothEyes is true when YuNet 5-point has a plausible eye pair.
+func landmarksBothEyes(kps []float64) bool {
+	if len(kps) < 4 {
+		return false
+	}
+	return math.Hypot(kps[2]-kps[0], kps[3]-kps[1]) >= 12
 }
 
 // hemifaceOcclusion is true when ≥2 of {eye, brow, ear} pairs are present on
@@ -493,27 +505,53 @@ func outerTouchesBottom(labels []uint8, imageLeft bool) bool {
 	return float64(skin)/float64(total) >= 0.10
 }
 
-// topHatRatio is the share of hat pixels in the upper 30% of the parse map.
-func topHatRatio(labels []uint8) float64 {
+// hatOcclusionReason rejects clear headwear while tolerating dark bangs /
+// ID-card print noise that BiSeNet often paints as sparse hat labels.
+func hatOcclusionReason(labels []uint8, hat, hair int, fc float64) string {
+	topHat := topClassRatio(labels, parseHat)
+	topHair := topClassRatio(labels, parseHair)
+
+	// Explicit hat class must outnumber hair overall and sit on the forehead.
+	if hat >= 2000 && hat > int(fc*0.05) && hat >= hair && topHat >= 0.14 {
+		return "检测到帽子遮挡，已拒绝"
+	}
+	// Forehead band dominated by hat over hair (typical brim / beanie).
+	if topHat >= 0.22 && topHat > topHair*2 && hat > int(fc*0.035) {
+		return "检测到帽子遮挡，已拒绝"
+	}
+	// Cap brim mislabeled as hair: dense top cover, almost no hat labels.
+	if topCapLikeCover(labels) && topHair >= 0.55 && topHat < 0.08 {
+		return "检测到帽子遮挡，已拒绝"
+	}
+	return ""
+}
+
+// topClassRatio is the share of class pixels in the upper 30% of the parse map.
+func topClassRatio(labels []uint8, class uint8) float64 {
 	side := parseSide(labels)
 	if side < 8 {
 		return 0
 	}
 	y1 := side * 30 / 100
-	hat, total := 0, 0
+	n, total := 0, 0
 	for y := 0; y < y1; y++ {
 		row := y * side
 		for x := 0; x < side; x++ {
 			total++
-			if labels[row+x] == parseHat {
-				hat++
+			if labels[row+x] == class {
+				n++
 			}
 		}
 	}
 	if total < 1 {
 		return 0
 	}
-	return float64(hat) / float64(total)
+	return float64(n) / float64(total)
+}
+
+// topHatRatio is the share of hat pixels in the upper 30% of the parse map.
+func topHatRatio(labels []uint8) float64 {
+	return topClassRatio(labels, parseHat)
 }
 
 // topCapLikeCover detects a hard forehead cover (cap) when BiSeNet labels the
@@ -556,7 +594,8 @@ func topCapLikeCover(labels []uint8) bool {
 	topSkinR := float64(topSkin) / float64(topTotal)
 	topCoverR := float64(topHairHat) / float64(topTotal)
 	midSkinR := float64(midSkin) / float64(midTotal)
-	return midSkinR > 0.22 && topSkinR < 0.04 && topCoverR > 0.55
+	// Stricter than early bangs false-positives: need a hard slab of cover.
+	return midSkinR > 0.22 && topSkinR < 0.025 && topCoverR > 0.62
 }
 
 func parseSide(labels []uint8) int {

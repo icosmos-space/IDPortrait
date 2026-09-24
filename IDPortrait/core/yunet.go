@@ -126,7 +126,7 @@ func DetectFace(src string, opts FaceCheckOptions) (*FaceCheckResult, error) {
 			}
 		}
 		if !opts.SkipParse {
-			if reason := faceParseReject(bestView, best.FaceBox); reason != "" {
+			if reason := faceParseReject(bestView, best.FaceBox, best.Landmarks); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}
 		}
