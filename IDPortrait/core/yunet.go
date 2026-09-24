@@ -119,6 +119,11 @@ func DetectFace(src string, opts FaceCheckOptions) (*FaceCheckResult, error) {
 			if reason := facePoseReject(poseHit); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}
+		}
+		if !opts.SkipTilt {
+			if reason := faceRollReject(poseHit); reason != "" {
+				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+			}
 			if reason := shoulderTiltReject(bestView, best.FaceBox); reason != "" {
 				return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
 			}

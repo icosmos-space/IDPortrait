@@ -91,10 +91,14 @@ function onRemoteSwitch(v) {
         @update:expanded-names="(names) => { precheckExpanded = names }"
       >
         <n-collapse-item title="导入人脸预检" name="precheck">
-          <p class="precheck-desc">关闭后仍会检测「是否有且仅有一张人脸」，但不再因姿态/画质/遮挡拒绝图片。</p>
+          <p class="precheck-desc">关闭后仍会检测「是否有且仅有一张人脸」；下列开关可分别关闭对应拒绝项。</p>
           <div class="field switch-row">
-            <label>姿态（侧脸 / 俯仰 / 倾斜）</label>
+            <label>侧脸 / 俯仰</label>
             <n-switch v-model:value="setting.checkPose" size="small" />
+          </div>
+          <div class="field switch-row">
+            <label>头肩倾斜 / 扭转</label>
+            <n-switch v-model:value="setting.checkTilt" size="small" />
           </div>
           <div class="field switch-row">
             <label>人脸模糊</label>

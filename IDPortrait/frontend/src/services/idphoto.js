@@ -411,6 +411,7 @@ export const IDPhotoService = {
     // Skip* defaults to false → all gates ON (safe if bindings drop fields).
     const opts = {
       skipPose: options.skipPose === true || options.checkPose === false,
+      skipTilt: options.skipTilt === true || options.checkTilt === false,
       skipBlur: options.skipBlur === true || options.checkBlur === false,
       skipMosaic: options.skipMosaic === true || options.checkMosaic === false,
       skipParse: options.skipParse === true || options.checkParse === false,

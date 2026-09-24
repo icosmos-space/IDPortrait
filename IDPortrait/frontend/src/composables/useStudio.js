@@ -132,6 +132,7 @@ export function useStudio() {
     enableRephotoDetect: true,
     enableAiDetect: true,
     checkPose: true,
+    checkTilt: true,
     checkBlur: true,
     checkMosaic: true,
     checkParse: true,
@@ -238,9 +239,9 @@ export function useStudio() {
     } else if (reason.includes('抬头')) {
       title = '抬头不合格'
       detail = '检测到抬头姿态，不能制作证件照。请平视镜头后重新拍摄或换图。'
-    } else if (reason.includes('头部倾斜') || reason.includes('肩膀倾斜')) {
+    } else if (reason.includes('头部倾斜') || reason.includes('肩膀倾斜') || reason.includes('肩膀扭转')) {
       title = '姿态倾斜'
-      detail = '检测到头部或肩膀倾斜，不能制作证件照。请端正坐姿、双眼连线保持水平后重新拍摄或换图。'
+      detail = '检测到头部倾斜或肩膀扭转，不能制作证件照。请端正坐姿、双肩水平正对镜头后重新拍摄或换图。'
     } else if (reason.includes('模糊')) {
       title = '人脸模糊'
       detail = '检测到人脸清晰度不足（可能被高斯模糊），不能制作证件照。请换一张清晰的正面单人照片。'
@@ -288,6 +289,7 @@ export function useStudio() {
     try {
       const person = normalizeFaceCheck(await IDPhotoService.DetectFace(dataUrl, {
         skipPose: !setting.checkPose,
+        skipTilt: !setting.checkTilt,
         skipBlur: !setting.checkBlur,
         skipMosaic: !setting.checkMosaic,
         skipParse: !setting.checkParse,
@@ -600,6 +602,7 @@ export function useStudio() {
       if (raw) {
         const saved = JSON.parse(raw)
         if (typeof saved.checkPose === 'boolean') setting.checkPose = saved.checkPose
+        if (typeof saved.checkTilt === 'boolean') setting.checkTilt = saved.checkTilt
         if (typeof saved.checkBlur === 'boolean') setting.checkBlur = saved.checkBlur
         if (typeof saved.checkMosaic === 'boolean') setting.checkMosaic = saved.checkMosaic
         if (typeof saved.checkParse === 'boolean') setting.checkParse = saved.checkParse
@@ -1110,6 +1113,7 @@ export function useStudio() {
       localStorage.setItem('idportrait.progressStyle', setting.progressStyle === 'ghost' ? 'ghost' : 'card')
       localStorage.setItem('idportrait.facePrecheck', JSON.stringify({
         checkPose: !!setting.checkPose,
+        checkTilt: !!setting.checkTilt,
         checkBlur: !!setting.checkBlur,
         checkMosaic: !!setting.checkMosaic,
         checkParse: !!setting.checkParse,

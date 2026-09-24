@@ -232,6 +232,7 @@ type detectFaceReq struct {
 	Path       string                 `json:"path"`
 	Image      string                 `json:"image"`
 	SkipPose   *bool                  `json:"skipPose"`
+	SkipTilt   *bool                  `json:"skipTilt"`
 	SkipBlur   *bool                  `json:"skipBlur"`
 	SkipMosaic *bool                  `json:"skipMosaic"`
 	SkipParse  *bool                  `json:"skipParse"`
@@ -253,6 +254,9 @@ func (s *Server) handleDetectFace(c echo.Context) error {
 	} else {
 		if req.SkipPose != nil {
 			opts.SkipPose = *req.SkipPose
+		}
+		if req.SkipTilt != nil {
+			opts.SkipTilt = *req.SkipTilt
 		}
 		if req.SkipBlur != nil {
 			opts.SkipBlur = *req.SkipBlur

@@ -34,6 +34,7 @@ export namespace core {
 	}
 	export class FaceCheckOptions {
 	    skipPose: boolean;
+	    skipTilt: boolean;
 	    skipBlur: boolean;
 	    skipMosaic: boolean;
 	    skipParse: boolean;
@@ -45,6 +46,7 @@ export namespace core {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.skipPose = source["skipPose"];
+	        this.skipTilt = source["skipTilt"];
 	        this.skipBlur = source["skipBlur"];
 	        this.skipMosaic = source["skipMosaic"];
 	        this.skipParse = source["skipParse"];
