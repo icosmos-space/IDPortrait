@@ -233,6 +233,12 @@ export function useStudio() {
     } else if (reason.includes('抬头')) {
       title = '抬头不合格'
       detail = '检测到抬头姿态，不能制作证件照。请平视镜头后重新拍摄或换图。'
+    } else if (reason.includes('模糊')) {
+      title = '人脸模糊'
+      detail = '检测到人脸清晰度不足（可能被高斯模糊），不能制作证件照。请换一张清晰的正面单人照片。'
+    } else if (reason.includes('马赛克')) {
+      title = '人脸马赛克'
+      detail = '检测到人脸被马赛克或像素化处理，不能制作证件照。请换一张未打码的清晰正面单人照片。'
     }
     const thumb = previewUrl || person?.dataUrl || ''
     statusText.value = title
