@@ -103,8 +103,9 @@ func faceParseReject(img *image.NRGBA, box []float64) string {
 	if img == nil || len(box) < 4 {
 		return ""
 	}
+	// Extra top pad so caps / hats above the forehead stay in the parse crop.
 	// Keep bottom pad small so shirt collars on ID photos are not treated as masks.
-	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.12, 0.12, 0.12, 0.04)
+	crop := cropFaceNRGBAPad(img, box[0], box[1], box[2], box[3], 0.15, 0.45, 0.15, 0.04)
 	if crop == nil {
 		return ""
 	}
@@ -261,24 +262,106 @@ func judgeParseLabels(labels []uint8) string {
 		return "检测到人脸遮挡，已拒绝"
 	}
 
+	// Hats before the generic hair rule — caps often get hair labels.
+	if hat >= 600 || hat > int(fc*0.02) {
+		return "检测到帽子遮挡，已拒绝"
+	}
+	if topHatRatio(labels) >= 0.06 {
+		return "检测到帽子遮挡，已拒绝"
+	}
+	if topCapLikeCover(labels) {
+		return "检测到帽子遮挡，已拒绝"
+	}
+
 	if hair > int(fc*0.7) && skin < int(fc*0.15) {
 		return "检测到人脸遮挡，已拒绝"
 	}
-	if hat > int(fc*0.35) && eyes < int(fc*0.008) {
-		return "检测到帽子遮挡，已拒绝"
-	}
 	return ""
+}
+
+// topHatRatio is the share of hat pixels in the upper 30% of the parse map.
+func topHatRatio(labels []uint8) float64 {
+	side := parseSide(labels)
+	if side < 8 {
+		return 0
+	}
+	y1 := side * 30 / 100
+	hat, total := 0, 0
+	for y := 0; y < y1; y++ {
+		row := y * side
+		for x := 0; x < side; x++ {
+			total++
+			if labels[row+x] == parseHat {
+				hat++
+			}
+		}
+	}
+	if total < 1 {
+		return 0
+	}
+	return float64(hat) / float64(total)
+}
+
+// topCapLikeCover detects a hard forehead cover (cap) when BiSeNet labels the
+// brim as hair: upper band almost no skin, mostly hair/hat/bg, while the
+// mid-face still shows a normal skin mass.
+func topCapLikeCover(labels []uint8) bool {
+	side := parseSide(labels)
+	if side < 8 {
+		return false
+	}
+	yTop := side * 28 / 100
+	yMid0 := side * 30 / 100
+	yMid1 := side * 55 / 100
+	topSkin, topHairHat, topTotal := 0, 0, 0
+	midSkin, midTotal := 0, 0
+	for y := 0; y < yTop; y++ {
+		row := y * side
+		for x := 0; x < side; x++ {
+			topTotal++
+			switch labels[row+x] {
+			case parseSkin:
+				topSkin++
+			case parseHair, parseHat:
+				topHairHat++
+			}
+		}
+	}
+	for y := yMid0; y < yMid1; y++ {
+		row := y * side
+		for x := 0; x < side; x++ {
+			midTotal++
+			if labels[row+x] == parseSkin {
+				midSkin++
+			}
+		}
+	}
+	if topTotal < 1 || midTotal < 1 {
+		return false
+	}
+	topSkinR := float64(topSkin) / float64(topTotal)
+	topCoverR := float64(topHairHat) / float64(topTotal)
+	midSkinR := float64(midSkin) / float64(midTotal)
+	return midSkinR > 0.22 && topSkinR < 0.04 && topCoverR > 0.55
+}
+
+func parseSide(labels []uint8) int {
+	side := parseSize
+	if len(labels) != side*side {
+		side = int(math.Sqrt(float64(len(labels))))
+		if side*side != len(labels) {
+			return 0
+		}
+	}
+	return side
 }
 
 // midFaceClothRatio is the share of cloth pixels in the vertical band
 // where surgical masks usually cover (roughly nose to chin).
 func midFaceClothRatio(labels []uint8) float64 {
-	side := parseSize
-	if len(labels) != side*side {
-		side = int(math.Sqrt(float64(len(labels))))
-		if side*side != len(labels) || side < 8 {
-			return 0
-		}
+	side := parseSide(labels)
+	if side < 8 {
+		return 0
 	}
 	y0 := side * 35 / 100
 	y1 := side * 80 / 100
