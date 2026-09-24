@@ -40,7 +40,8 @@ var (
 )
 
 // DetectFace runs YuNet on a new photo before it enters preview.
-// Exactly one face is accepted. Sideways photos are rotated upright.
+// Exactly one frontal face is accepted. Sideways photos are rotated upright.
+// Side face / looking down / looking up are rejected.
 // The live camera viewfinder does not use this path.
 func DetectFace(src string) (*FaceCheckResult, error) {
 	src = strings.TrimSpace(src)
@@ -101,6 +102,15 @@ func DetectFace(src string) (*FaceCheckResult, error) {
 		}
 	}
 	if best != nil {
+		poseHit := faceHit{
+			x: best.FaceBox[0], y: best.FaceBox[1],
+			w: best.FaceBox[2] - best.FaceBox[0], h: best.FaceBox[3] - best.FaceBox[1],
+			score: best.Score,
+		}
+		copy(poseHit.kps[:], best.Landmarks)
+		if reason := facePoseReject(poseHit); reason != "" {
+			return &FaceCheckResult{OK: false, Reason: reason, ImgBase64: best.ImgBase64}, nil
+		}
 		return best, nil
 	}
 	if sawMultiple {

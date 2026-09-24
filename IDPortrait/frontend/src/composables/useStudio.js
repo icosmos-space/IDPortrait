@@ -217,12 +217,23 @@ export function useStudio() {
     }
   }
 
-  function showFaceReject(person, previewUrl = '') {
-    const many = String(person?.reason || '').includes('多张')
-    const title = many ? '人脸太多' : '没有人脸'
-    const detail = many
-      ? '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
-      : '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
+	function showFaceReject(person, previewUrl = '') {
+    const reason = String(person?.reason || '')
+    let title = '没有人脸'
+    let detail = '这张图片里没有检测到人脸，不能制作证件照。请换一张正面单人照片。'
+    if (reason.includes('多张')) {
+      title = '人脸太多'
+      detail = '这张图片里有多张人脸，不能制作证件照。请换一张只有一个人的照片。'
+    } else if (reason.includes('侧脸')) {
+      title = '侧脸不合格'
+      detail = '检测到明显侧脸，不能制作证件照。请换一张正对镜头的单人照片。'
+    } else if (reason.includes('低头')) {
+      title = '低头不合格'
+      detail = '检测到低头姿态，不能制作证件照。请抬头正视镜头后重新拍摄或换图。'
+    } else if (reason.includes('抬头')) {
+      title = '抬头不合格'
+      detail = '检测到抬头姿态，不能制作证件照。请平视镜头后重新拍摄或换图。'
+    }
     const thumb = previewUrl || person?.dataUrl || ''
     statusText.value = title
     processTagType.value = 'error'

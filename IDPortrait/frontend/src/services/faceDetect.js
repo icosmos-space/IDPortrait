@@ -179,8 +179,25 @@ export function qualifyDetections(detections, width, height) {
   const nose = lm.getNose()
   const noseTip = nose[Math.min(3, nose.length - 1)]
   const midX = (leftEye.x + rightEye.x) / 2
+  const midY = (leftEye.y + rightEye.y) / 2
   if (Math.abs(noseTip.x - midX) / eyeDist > 0.32) {
     return { ok: false, reason: '请正对镜头，不要侧脸', face }
+  }
+
+  const mouth = lm.getMouth()
+  const mouthLeft = mouth[0]
+  const mouthRight = mouth[Math.min(6, mouth.length - 1)]
+  const mouthMidY = (mouthLeft.y + mouthRight.y) / 2
+  const vert = mouthMidY - midY
+  if (vert < eyeDist * 0.35) {
+    return { ok: false, reason: '请不要低头，平视镜头', face }
+  }
+  const pitch = (noseTip.y - midY) / vert
+  if (pitch > 0.78) {
+    return { ok: false, reason: '请不要低头，平视镜头', face }
+  }
+  if (pitch < 0.28) {
+    return { ok: false, reason: '请不要抬头，平视镜头', face }
   }
 
   return { ok: true, reason: '姿态合格，可以拍照', face }
