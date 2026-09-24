@@ -335,6 +335,10 @@ function makeLayoutDataUrl(bg, label, mode = 'solid') {
 }
 
 async function tryGo(method, ...args) {
+  // wailsjs/App.js 始终能 import，但浏览器里没有 window.go → 读 main 会抛错
+  if (!isWailsRuntime()) {
+    return undefined
+  }
   let mod
   try {
     mod = await import('../../wailsjs/go/main/App.js')
