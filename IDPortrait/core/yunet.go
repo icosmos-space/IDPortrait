@@ -104,6 +104,11 @@ func DetectFace(src string, opts FaceCheckOptions) (*FaceCheckResult, error) {
 		bestView = view
 	}
 	if best != nil {
+		// Multi-face wins over single-face quality rejects (closed eyes, etc.).
+		// A rotated view may only "see" one face while the upright photo has two.
+		if sawMultiple {
+			return &FaceCheckResult{OK: false, Reason: "检测到多张人脸，已拒绝", ImgBase64: best.ImgBase64}, nil
+		}
 		poseHit := faceHit{
 			x: best.FaceBox[0], y: best.FaceBox[1],
 			w: best.FaceBox[2] - best.FaceBox[0], h: best.FaceBox[3] - best.FaceBox[1],
