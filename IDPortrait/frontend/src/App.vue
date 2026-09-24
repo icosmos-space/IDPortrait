@@ -23,6 +23,7 @@ const {
   hasMatting,
   activeResultTab,
   activeOriginTab,
+  showFaceLandmarks,
   resultTabs,
   originTabs,
   originView,
@@ -152,6 +153,7 @@ const {
       :social-hint="socialHint"
       :diagnostics="diagnostics"
       :beauty-strength="params.beautyStrength"
+      v-model:show-face-landmarks="showFaceLandmarks"
       @drop="handleDrop"
       @switch-origin-tab="switchOriginTab"
       @switch-result-tab="switchResultTab"

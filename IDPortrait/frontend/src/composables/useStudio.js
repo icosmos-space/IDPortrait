@@ -28,6 +28,7 @@ export function useStudio() {
   const hasResult = ref(false)
   const activeResultTab = ref('idphoto')
   const activeOriginTab = ref('original')
+  const showFaceLandmarks = ref(true)
 
   const resultTabs = RESULT_TABS
   const originTabs = ORIGIN_TABS
@@ -1101,6 +1102,7 @@ export function useStudio() {
     hasMatting,
     activeResultTab,
     activeOriginTab,
+    showFaceLandmarks,
     resultTabs,
     originTabs,
     originView,

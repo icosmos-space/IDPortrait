@@ -20,9 +20,10 @@ const props = defineProps({
   socialHint: { type: String, default: '倾斜相框' },
   diagnostics: { type: Array, default: () => [] },
   beautyStrength: { type: Number, default: 0 },
+  showFaceLandmarks: { type: Boolean, default: true },
 })
 
-const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab', 'switch-social'])
+const emit = defineEmits(['drop', 'switch-origin-tab', 'switch-result-tab', 'switch-social', 'update:showFaceLandmarks'])
 
 const originCanvas = ref(null)
 const resultCanvas = ref(null)
@@ -103,11 +104,15 @@ function averagePoints(landmarks, start, end) {
   return { x: x / n, y: y / n }
 }
 
-/** 左眼、右眼、鼻尖、左嘴角、右嘴角。68 点取关键索引，已是 5 点则直接用。 */
+/** 五官关键点，附中文标签。YuNet 五点：右眼、左眼、鼻尖、右嘴角、左嘴角。 */
 function fiveKeypoints(landmarks) {
   if (!landmarks?.length) return null
   if (landmarks.length === 10) {
-    return [0, 1, 2, 3, 4].map((i) => pointAt(landmarks, i))
+    const labels = ['右眼', '左眼', '鼻尖', '右嘴角', '左嘴角']
+    return labels.map((label, i) => {
+      const p = pointAt(landmarks, i)
+      return p ? { ...p, label } : null
+    })
   }
   if (landmarks.length < 68 * 2) return null
   const leftEye = averagePoints(landmarks, 36, 41)
@@ -116,37 +121,124 @@ function fiveKeypoints(landmarks) {
   const mouthLeft = pointAt(landmarks, 48)
   const mouthRight = pointAt(landmarks, 54)
   if (!leftEye || !rightEye || !nose || !mouthLeft || !mouthRight) return null
-  return [leftEye, rightEye, nose, mouthLeft, mouthRight]
+  return [
+    { ...leftEye, label: '左眼' },
+    { ...rightEye, label: '右眼' },
+    { ...nose, label: '鼻尖' },
+    { ...mouthLeft, label: '左嘴角' },
+    { ...mouthRight, label: '右嘴角' },
+  ]
 }
 
 function drawFiveKeypoints(ctx, landmarks, sx, sy) {
   const pts = fiveKeypoints(landmarks)
-  if (!pts) return
-  const mapped = pts.map((p) => ({ x: p.x * sx, y: p.y * sy }))
-  const links = [
-    [0, 1],
-    [0, 2],
-    [1, 2],
-    [2, 3],
-    [2, 4],
-    [3, 4],
-  ]
+  if (!pts?.every(Boolean)) return
+  const mapped = pts.map((p) => ({ x: p.x * sx, y: p.y * sy, label: p.label }))
+  const eyeSpan = Math.hypot(mapped[0].x - mapped[1].x, mapped[0].y - mapped[1].y) || 48
+  const noseArm = Math.max(20, Math.min(48, eyeSpan * 0.58))
+  const sideArm = Math.max(8, Math.min(18, eyeSpan * 0.2))
+  const lineW = Math.max(0.65, Math.min(1.05, eyeSpan / 80))
+  const fontPx = Math.max(9, Math.min(12, eyeSpan / 9))
+  const gap = Math.max(5, fontPx * 0.4)
+  const arms = [sideArm, sideArm, noseArm, sideArm, sideArm]
+  const cx = mapped.reduce((s, p) => s + p.x, 0) / mapped.length
+  const cy = mapped.reduce((s, p) => s + p.y, 0) / mapped.length
+
+  const neon = 'rgba(64, 224, 255, 0.92)'
+  const neonDim = 'rgba(64, 224, 255, 0.55)'
+  const glow = 'rgba(0, 200, 255, 0.55)'
+
   ctx.save()
-  ctx.strokeStyle = '#c45b7a'
-  ctx.fillStyle = '#c45b7a'
-  ctx.lineWidth = 1.5
-  ctx.lineJoin = 'round'
-  ctx.beginPath()
-  for (const [a, b] of links) {
-    ctx.moveTo(mapped[a].x, mapped[a].y)
-    ctx.lineTo(mapped[b].x, mapped[b].y)
-  }
-  ctx.stroke()
-  for (const p of mapped) {
+  ctx.lineCap = 'butt'
+  ctx.lineJoin = 'miter'
+  ctx.font = `500 ${fontPx}px "Cascadia Mono", "JetBrains Mono", "Consolas", "Microsoft YaHei", monospace`
+  ctx.textBaseline = 'middle'
+  ctx.shadowColor = glow
+  ctx.shadowBlur = Math.max(3, lineW * 4)
+
+  // Sci-fi targeting reticle: segmented cross + hollow core + end ticks.
+  const drawReticle = (x, y, arm, heavy) => {
+    const core = Math.max(2.2, arm * 0.16)
+    const tick = Math.max(2.5, arm * 0.22)
+    ctx.strokeStyle = neon
+    ctx.lineWidth = heavy ? lineW * 1.15 : lineW
+
     ctx.beginPath()
-    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2)
-    ctx.fill()
+    // Horizontal segments (gap at center).
+    ctx.moveTo(x - arm, y)
+    ctx.lineTo(x - core, y)
+    ctx.moveTo(x + core, y)
+    ctx.lineTo(x + arm, y)
+    // Vertical segments.
+    ctx.moveTo(x, y - arm)
+    ctx.lineTo(x, y - core)
+    ctx.moveTo(x, y + core)
+    ctx.lineTo(x, y + arm)
+    ctx.stroke()
+
+    // End caps (small perpendicular ticks).
+    ctx.beginPath()
+    ctx.moveTo(x - arm, y - tick * 0.55)
+    ctx.lineTo(x - arm, y + tick * 0.55)
+    ctx.moveTo(x + arm, y - tick * 0.55)
+    ctx.lineTo(x + arm, y + tick * 0.55)
+    ctx.moveTo(x - tick * 0.55, y - arm)
+    ctx.lineTo(x + tick * 0.55, y - arm)
+    ctx.moveTo(x - tick * 0.55, y + arm)
+    ctx.lineTo(x + tick * 0.55, y + arm)
+    ctx.stroke()
+
+    // Hollow diamond core.
+    const d = core * 0.72
+    ctx.beginPath()
+    ctx.moveTo(x, y - d)
+    ctx.lineTo(x + d, y)
+    ctx.lineTo(x, y + d)
+    ctx.lineTo(x - d, y)
+    ctx.closePath()
+    ctx.strokeStyle = neonDim
+    ctx.stroke()
+
+    if (heavy) {
+      // Nose: outer dashed ring for “scan lock” feel.
+      const rr = arm * 0.72
+      ctx.setLineDash([Math.max(2, arm * 0.12), Math.max(2, arm * 0.1)])
+      ctx.beginPath()
+      ctx.arc(x, y, rr, 0, Math.PI * 2)
+      ctx.strokeStyle = neonDim
+      ctx.lineWidth = lineW * 0.85
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
   }
+
+  mapped.forEach((p, i) => {
+    const arm = arms[i]
+    const isNose = i === 2
+    drawReticle(p.x, p.y, arm, isNose)
+
+    const label = p.label || ''
+    if (!label) return
+    let tx
+    let ty
+    let align
+    if (isNose) {
+      align = 'center'
+      tx = p.x
+      ty = p.y + arm + gap + fontPx * 0.25
+    } else {
+      const toRight = p.x >= cx
+      const toBelow = p.y > cy + eyeSpan * 0.08
+      align = toRight ? 'left' : 'right'
+      tx = p.x + (toRight ? arm + gap : -(arm + gap))
+      ty = p.y + (toBelow ? fontPx * 0.55 : -fontPx * 0.55)
+    }
+    ctx.textAlign = align
+    ctx.shadowBlur = Math.max(2, lineW * 3)
+    const tag = isNose ? `◆ ${label}` : `› ${label}`
+    ctx.fillStyle = neon
+    ctx.fillText(tag, tx, ty)
+  })
   ctx.restore()
 }
 
@@ -203,7 +295,9 @@ function drawOriginSide() {
     ctx.drawImage(img, 0, 0, fitted.w, fitted.h)
     const sx = fitted.w / img.width
     const sy = fitted.h / img.height
-    drawFiveKeypoints(ctx, view.landmarks, sx, sy)
+    if (props.showFaceLandmarks) {
+      drawFiveKeypoints(ctx, view.landmarks, sx, sy)
+    }
   }
   img.onerror = () => {
     paintPlaceholder(canvas, '原图加载失败', '请重新选择图片')
@@ -263,7 +357,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => [props.originView, props.mattingView, props.activeOriginTab, props.hasOrigin, props.hasMatting],
+  () => [props.originView, props.mattingView, props.activeOriginTab, props.hasOrigin, props.hasMatting, props.showFaceLandmarks],
   () => drawOriginSide(),
   { deep: true },
 )
@@ -313,6 +407,17 @@ watch(
             @drop.prevent="emit('drop', $event)"
           >
             <canvas ref="originCanvas" />
+            <label
+              v-if="activeOriginTab === 'original' && hasOrigin"
+              class="landmark-toggle landmark-toggle--float"
+            >
+              <span>五官标记</span>
+              <n-switch
+                size="small"
+                :value="showFaceLandmarks"
+                @update:value="emit('update:showFaceLandmarks', $event)"
+              />
+            </label>
             <p v-if="!hasOrigin && activeOriginTab === 'original'" class="frame-hint">
               拖放照片到这里，或点「打开图片」
             </p>
