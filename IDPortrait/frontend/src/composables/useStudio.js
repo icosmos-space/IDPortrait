@@ -238,6 +238,9 @@ export function useStudio() {
     } else if (reason.includes('抬头')) {
       title = '抬头不合格'
       detail = '检测到抬头姿态，不能制作证件照。请平视镜头后重新拍摄或换图。'
+    } else if (reason.includes('头部倾斜') || reason.includes('肩膀倾斜')) {
+      title = '姿态倾斜'
+      detail = '检测到头部或肩膀倾斜，不能制作证件照。请端正坐姿、双眼连线保持水平后重新拍摄或换图。'
     } else if (reason.includes('模糊')) {
       title = '人脸模糊'
       detail = '检测到人脸清晰度不足（可能被高斯模糊），不能制作证件照。请换一张清晰的正面单人照片。'
