@@ -202,7 +202,8 @@ export function qualifyDetections(detections, width, height) {
 
   const leftEAR = eyeAspectRatio(lm.getLeftEye())
   const rightEAR = eyeAspectRatio(lm.getRightEye())
-  if (leftEAR < 0.18 || rightEAR < 0.18) {
+  // Require both eyes clearly shut — frames often depress a single EAR.
+  if (leftEAR < 0.15 && rightEAR < 0.15) {
     return { ok: false, reason: '请睁开眼睛', face }
   }
 

@@ -118,7 +118,7 @@ func faceParseReject(img *image.NRGBA, box []float64, landmarks []float64) strin
 		// Parsing is advisory; do not block the pipeline on model failure.
 		return ""
 	}
-	return judgeParseLabelsWithKps(labels, landmarks)
+	return judgeParseLabelsWithKps(labels, landmarks, crop)
 }
 
 func cropFaceNRGBA(img *image.NRGBA, x1, y1, x2, y2, padRatio float64) *image.NRGBA {
@@ -216,10 +216,10 @@ func argmaxParse(logits []float32, side, classes int) []uint8 {
 }
 
 func judgeParseLabels(labels []uint8) string {
-	return judgeParseLabelsWithKps(labels, nil)
+	return judgeParseLabelsWithKps(labels, nil, nil)
 }
 
-func judgeParseLabelsWithKps(labels []uint8, landmarks []float64) string {
+func judgeParseLabelsWithKps(labels []uint8, landmarks []float64, face *image.NRGBA) string {
 	if len(labels) == 0 {
 		return ""
 	}
@@ -246,7 +246,15 @@ func judgeParseLabelsWithKps(labels []uint8, landmarks []float64) string {
 	fc := float64(faceCore)
 
 	// Closed eyes: almost no eye pixels while brows / face are present.
-	if eyes < int(fc*0.0025) || (brows > 200 && eyes < brows/8) {
+	// Clear eyeglasses are often labeled as `glasses` instead of `eye`, so
+	// frames must not trip the brow/eye ratio. Only apply the strict gate
+	// when the glasses class is negligible.
+	if glasses < int(fc*0.012) {
+		if eyes < int(fc*0.0025) || (brows > 200 && eyes < brows/8) {
+			return "检测到闭眼，已拒绝"
+		}
+	} else if eyes < int(fc*0.001) && glasses < int(fc*0.02) {
+		// Tiny glasses crumbs + no eyes ≈ shut lids, not optical frames.
 		return "检测到闭眼，已拒绝"
 	}
 
@@ -258,9 +266,13 @@ func judgeParseLabelsWithKps(labels []uint8, landmarks []float64) string {
 		return "检测到人脸遮挡，已拒绝"
 	}
 
-	// Sunglasses: glasses region large but eyes barely visible.
-	if glasses > int(fc*0.035) && eyes < int(fc*0.004) {
-		return "检测到墨镜遮挡，已拒绝"
+	// Sunglasses: large glasses mass + almost no eye class. Clear optical
+	// lenses are also labeled `glasses` with eyes≈0, so require the lens
+	// band to look dark in the crop (opaque tint) before rejecting.
+	if glasses > int(fc*0.06) && eyes < int(fc*0.002) {
+		if face == nil || darkGlassesLenses(labels, face) {
+			return "检测到墨镜遮挡，已拒绝"
+		}
 	}
 
 	// Cloth only counts as occlusion when it covers the mid-face band
@@ -301,6 +313,56 @@ func landmarksBothEyes(kps []float64) bool {
 		return false
 	}
 	return math.Hypot(kps[2]-kps[0], kps[3]-kps[1]) >= 12
+}
+
+// darkGlassesLenses is true when the BiSeNet glasses band looks like opaque
+// tinted lenses. Clear optical glasses also get the glasses class (often with
+// eyes=0), but lens interiors stay bright because skin/iris show through.
+func darkGlassesLenses(labels []uint8, face *image.NRGBA) bool {
+	if face == nil {
+		return true
+	}
+	side := parseSide(labels)
+	if side < 8 {
+		return true
+	}
+	sw, sh := face.Bounds().Dx(), face.Bounds().Dy()
+	if sw < 8 || sh < 8 {
+		return true
+	}
+	y0 := side * 18 / 100
+	y1 := side * 48 / 100
+	var bright, mid, dark, total int
+	for y := y0; y < y1; y++ {
+		sy := (float64(y)+0.5)*float64(sh)/float64(side) - 0.5
+		row := y * side
+		for x := 0; x < side; x++ {
+			if labels[row+x] != parseGlasses {
+				continue
+			}
+			sx := (float64(x)+0.5)*float64(sw)/float64(side) - 0.5
+			r, g, b := sampleNRGBA(face.Pix, face.Stride, sw, sh, sx, sy)
+			luma := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
+			total++
+			switch {
+			case luma >= 110:
+				bright++
+			case luma >= 55:
+				mid++
+			default:
+				dark++
+			}
+		}
+	}
+	if total < 200 {
+		return true
+	}
+	// Clear lenses: enough bright/mid pixels (eyes/skin through glass).
+	// Black frames alone make `dark` high — require dark dominance overall.
+	if bright*100 >= total*12 || (bright+mid)*100 >= total*35 {
+		return false
+	}
+	return dark*100 >= total*55
 }
 
 // hemifaceOcclusion is true when ≥2 of {eye, brow, ear} pairs are present on

@@ -67,6 +67,41 @@ func TestJudgeParseRejectsSunglasses(t *testing.T) {
 	}
 }
 
+func TestJudgeParseAllowsClearGlasses(t *testing.T) {
+	// Optical frames: BiSeNet paints lenses as glasses; irises still peek through.
+	labels := synthParseMap(func(x, y, side int) uint8 {
+		inEyeBand := y > side/5 && y < side/3
+		leftEye := x > side/4 && x < side*2/5
+		rightEye := x > side*3/5 && x < side*3/4
+		if inEyeBand && (leftEye || rightEye) {
+			// Mostly glasses with a small eye core (clear lenses).
+			if (x+y)%5 == 0 {
+				if leftEye {
+					return parseLEye
+				}
+				return parseREye
+			}
+			return parseGlasses
+		}
+		if inEyeBand {
+			if x < side/2 {
+				return parseLBrow
+			}
+			return parseRBrow
+		}
+		if y > side/3 && y < side/2 && x > side*2/5 && x < side*3/5 {
+			return parseNose
+		}
+		if y > side*11/20 && y < side*13/20 {
+			return parseULip
+		}
+		return parseSkin
+	})
+	if reason := judgeParseLabels(labels); reason != "" {
+		t.Fatalf("clear eyeglasses should pass, got %q", reason)
+	}
+}
+
 func TestJudgeParseAllowsFrontal(t *testing.T) {
 	labels := synthParseMap(func(x, y, side int) uint8 {
 		if y > side/5 && y < side/3 {
