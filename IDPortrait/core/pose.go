@@ -103,17 +103,17 @@ func shoulderTiltReject(img *image.NRGBA, box []float64) string {
 
 	// --- yaw / twist: face frontal but one shoulder much closer / wider ---
 	leftExt, rightExt, ok := shoulderHorizontalExtents(img, faceCX, bandTop, bandBot, fw)
-	if ok && leftExt > fw*0.15 && rightExt > fw*0.15 {
+	if ok && leftExt > fw*0.12 && rightExt > fw*0.12 {
 		ratio := leftExt / rightExt
 		if ratio < 1 {
 			ratio = 1 / ratio
 		}
 		// Frontal shoulders ≈ 1.0; turned torso pushes one side out.
-		if ratio > 1.36 {
+		if ratio > 1.32 {
 			return "检测到肩膀扭转，已拒绝"
 		}
 		offset := math.Abs(leftExt-rightExt) / (leftExt + rightExt)
-		if offset > 0.20 {
+		if offset > 0.17 {
 			return "检测到肩膀扭转，已拒绝"
 		}
 	}
@@ -124,48 +124,26 @@ func shoulderTiltReject(img *image.NRGBA, box []float64) string {
 // torso silhouette edges inside the shoulder band.
 func shoulderHorizontalExtents(img *image.NRGBA, faceCX, y0, y1, faceW float64) (leftExt, rightExt float64, ok bool) {
 	iw, ih := img.Bounds().Dx(), img.Bounds().Dy()
-	row0 := int(math.Max(0, math.Floor(y0+ (y1-y0)*0.15)))
-	row1 := int(math.Min(float64(ih), math.Ceil(y0+(y1-y0)*0.75)))
+	row0 := int(math.Max(0, math.Floor(y0+(y1-y0)*0.12)))
+	row1 := int(math.Min(float64(ih), math.Ceil(y0+(y1-y0)*0.78)))
 	if row1-row0 < 6 {
 		return 0, 0, false
 	}
-	searchL := int(math.Max(0, math.Floor(faceCX-faceW*1.35)))
-	searchR := int(math.Min(float64(iw), math.Ceil(faceCX+faceW*1.35)))
+	searchL := int(math.Max(0, math.Floor(faceCX-faceW*1.55)))
+	searchR := int(math.Min(float64(iw), math.Ceil(faceCX+faceW*1.55)))
 	if searchR-searchL < 16 {
 		return 0, 0, false
 	}
 
-	// Backdrop from the outer corners of the search band (top rows).
-	var refSum float64
-	refN := 0
-	refRows := row0 + (row1-row0)/5
-	if refRows <= row0 {
-		refRows = row0 + 1
-	}
-	corner := (searchR - searchL) / 10
-	if corner < 2 {
-		corner = 2
-	}
-	for y := row0; y < refRows; y++ {
-		for x := searchL; x < searchL+corner; x++ {
-			i := img.PixOffset(x, y)
-			refSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
-			refN++
-		}
-		for x := searchR - corner; x < searchR; x++ {
-			i := img.PixOffset(x, y)
-			refSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
-			refN++
-		}
-	}
-	if refN < 1 {
+	ref, refOK := shoulderBackdropLuma(img, searchL, searchR, row0, row1)
+	if !refOK {
 		return 0, 0, false
 	}
-	ref := refSum / float64(refN)
-	if ref < 140 {
-		return 0, 0, false // busy / dark backdrop — skip
+	// Foreground is darker than a light/grey studio backdrop.
+	thresh := ref - 18
+	if thresh > ref*0.88 {
+		thresh = ref * 0.88
 	}
-	thresh := ref - 28
 
 	var sumL, sumR float64
 	nOK := 0
@@ -207,6 +185,80 @@ func shoulderHorizontalExtents(img *image.NRGBA, faceCX, y0, y1, faceW float64) 
 	return sumL / float64(nOK), sumR / float64(nOK), true
 }
 
+// shoulderBackdropLuma estimates studio backdrop brightness from band-side
+// strips and full-image top corners. Grey backdrops (~100–140) are allowed.
+func shoulderBackdropLuma(img *image.NRGBA, searchL, searchR, row0, row1 int) (float64, bool) {
+	iw, ih := img.Bounds().Dx(), img.Bounds().Dy()
+	refRows := row0 + (row1-row0)/5
+	if refRows <= row0 {
+		refRows = row0 + 1
+	}
+	corner := (searchR - searchL) / 10
+	if corner < 2 {
+		corner = 2
+	}
+	var bandSum float64
+	bandN := 0
+	for y := row0; y < refRows && y < ih; y++ {
+		for x := searchL; x < searchL+corner && x < iw; x++ {
+			i := img.PixOffset(x, y)
+			bandSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
+			bandN++
+		}
+		for x := searchR - corner; x < searchR && x < iw; x++ {
+			if x < 0 {
+				continue
+			}
+			i := img.PixOffset(x, y)
+			bandSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
+			bandN++
+		}
+	}
+	var cornerSum float64
+	cornerN := 0
+	patch := 20
+	if patch > iw/4 {
+		patch = iw / 4
+	}
+	if patch > ih/8 {
+		patch = ih / 8
+	}
+	if patch < 4 {
+		patch = 4
+	}
+	for y := 0; y < patch; y++ {
+		for x := 0; x < patch; x++ {
+			i := img.PixOffset(x, y)
+			cornerSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
+			cornerN++
+		}
+		for x := iw - patch; x < iw; x++ {
+			i := img.PixOffset(x, y)
+			cornerSum += 0.299*float64(img.Pix[i]) + 0.587*float64(img.Pix[i+1]) + 0.114*float64(img.Pix[i+2])
+			cornerN++
+		}
+	}
+	ref := 0.0
+	if bandN > 0 {
+		ref = bandSum / float64(bandN)
+	}
+	if cornerN > 0 {
+		cRef := cornerSum / float64(cornerN)
+		// Prefer the brighter of band-side vs frame corners (true backdrop).
+		if cRef > ref {
+			ref = cRef
+		}
+		// If band sides are contaminated by hair/shoulder, lean on frame corners.
+		if bandN > 0 && math.Abs(bandSum/float64(bandN)-cRef) > 35 && cRef >= 95 {
+			ref = cRef
+		}
+	}
+	if ref < 95 {
+		return 0, false // too dark / textured — unreliable
+	}
+	return ref, true
+}
+
 // shoulderTopY walks down a vertical strip and returns the first row that looks
 // like torso foreground (darker / more saturated than a light studio backdrop).
 func shoulderTopY(img *image.NRGBA, cx, y0, y1, halfW float64) (float64, bool) {
@@ -239,11 +291,11 @@ func shoulderTopY(img *image.NRGBA, cx, y0, y1, halfW float64) (float64, bool) {
 		return 0, false
 	}
 	ref := refSum / float64(refN)
-	// Need a reasonably light backdrop to trust this heuristic.
-	if ref < 140 {
+	// Grey studio backdrops are often ~100–140 (not pure white).
+	if ref < 95 {
 		return 0, false
 	}
-	thresh := ref - 28
+	thresh := ref - 18
 	run := 0
 	for y := row0; y < row1; y++ {
 		dark := 0
